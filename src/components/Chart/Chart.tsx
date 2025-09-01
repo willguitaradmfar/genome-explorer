@@ -30,6 +30,8 @@ interface ChartProps {
   }) => {
     [indicatorId: string]: { time: number; value: number; color: string; name: string }[]
   })) => void;
+  fullDataForIndicators?: { data: OHLC[], volumeData: VolumeData[] } | null;
+  onChartReady?: (chartMethods: any) => void;
 }
 
 const Chart: React.FC<ChartProps> = ({ 
@@ -39,7 +41,9 @@ const Chart: React.FC<ChartProps> = ({
   settings,
   onDataUpdate,
   onCrosshairMove,
-  onIndicatorData
+  onIndicatorData,
+  fullDataForIndicators,
+  onChartReady
 }) => {
   const mainChartContainerRef = useRef<HTMLDivElement>(null);
   const mainChartRef = useRef<IChartApi | null>(null);
@@ -50,6 +54,119 @@ const Chart: React.FC<ChartProps> = ({
   const [subChartIndicators, setSubChartIndicators] = useState<ActiveIndicator[]>([]);
   const [isInitializing, setIsInitializing] = useState(false);
   const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isDisposed = useRef<boolean>(false);
+  const indicatorSeriesMap = useRef<Map<string, { series: any, data: any[], color: string, name: string, baseIndicator: ActiveIndicator }>>(new Map());
+  const subChartTooltips = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const updateIndicatorTooltipData = (time: number, paneType: 'main' | 'sub' = 'main') => {
+    if (!onIndicatorData) return;
+    
+    const tooltipData: { [indicatorId: string]: { time: number; value: number; color: string; name: string }[] } = {};
+    
+    // Group series by base indicator, filtered by pane type
+    const indicatorGroups = new Map<string, { time: number; value: number; color: string; name: string }[]>();
+    
+    // Iterate through all series stored in the map
+    indicatorSeriesMap.current.forEach(({ data, color, name, baseIndicator }) => {
+      // Only include indicators from the specified pane
+      if (baseIndicator.pane !== paneType) return;
+      
+      if (data) {
+        // Find the data point closest to the given time
+        const dataPoint = data.find((point: any) => point.time === time);
+        if (dataPoint && dataPoint.value !== undefined) {
+          const baseId = baseIndicator.id;
+          
+          if (!indicatorGroups.has(baseId)) {
+            indicatorGroups.set(baseId, []);
+          }
+          
+          indicatorGroups.get(baseId)!.push({
+            time: dataPoint.time,
+            value: dataPoint.value,
+            color: color,
+            name: name
+          });
+        }
+      }
+    });
+    
+    // Convert grouped data to tooltip format
+    indicatorGroups.forEach((seriesData, indicatorId) => {
+      if (seriesData.length > 0) {
+        tooltipData[indicatorId] = seriesData;
+      }
+    });
+    
+    // Update the tooltip data if we have any (only for main pane)
+    if (paneType === 'main' && Object.keys(tooltipData).length > 0) {
+      onIndicatorData(tooltipData);
+    }
+    
+    // For sub-charts, we'll handle tooltips differently (individual tooltips per chart)
+    return tooltipData;
+  };
+
+  const updateSubChartTooltip = (indicatorId: string, time: number, param: any) => {
+    const tooltipData = updateIndicatorTooltipData(time, 'sub');
+    if (!tooltipData) return;
+    
+    const indicatorData = tooltipData[indicatorId];
+    
+    if (!indicatorData || indicatorData.length === 0) {
+      // Hide tooltip if no data
+      const tooltip = subChartTooltips.current.get(indicatorId);
+      if (tooltip) {
+        tooltip.style.display = 'none';
+      }
+      return;
+    }
+
+    // Get or create tooltip element
+    let tooltip = subChartTooltips.current.get(indicatorId);
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.style.cssText = `
+        position: absolute;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        pointer-events: none;
+        z-index: 1000;
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        max-width: 250px;
+      `;
+      document.body.appendChild(tooltip);
+      subChartTooltips.current.set(indicatorId, tooltip);
+    }
+
+    // Build tooltip content
+    const lines = indicatorData.map(item => 
+      `<div style="color: ${item.color}; margin: 2px 0;">
+        <strong>${item.name}:</strong> ${item.value.toFixed(4)}
+      </div>`
+    ).join('');
+
+    tooltip.innerHTML = `
+      <div style="font-weight: bold; margin-bottom: 4px; color: #fff;">
+        ${indicatorData[0]?.name?.split('(')[0] || 'Indicator'}
+      </div>
+      ${lines}
+    `;
+
+    // Position tooltip near mouse
+    if (param.point) {
+      const rect = document.getElementById(`sub-chart-${indicatorId}`)?.getBoundingClientRect();
+      if (rect) {
+        tooltip.style.left = `${rect.left + param.point.x + 10}px`;
+        tooltip.style.top = `${rect.top + param.point.y - 10}px`;
+        tooltip.style.display = 'block';
+      }
+    }
+  };
 
   // Separate indicators by pane type
   useEffect(() => {
@@ -106,104 +223,61 @@ const Chart: React.FC<ChartProps> = ({
     },
   });
 
-  // Safe chart removal function
   const safeRemoveChart = (chart: IChartApi | null, name: string) => {
     if (!chart) return;
     
     try {
-      // Check if chart is already disposed
-      if ((chart as any)._internal_disposed) {
-        console.debug(`Chart ${name} already disposed`);
-        return;
-      }
-      
-      // Call custom cleanup if it exists (for sub-charts)
-      if ((chart as any)._cleanup) {
-        try {
-          (chart as any)._cleanup();
-        } catch (cleanupError) {
-          console.debug(`Error during ${name} cleanup:`, cleanupError);
-        }
-      }
-      
-      // Stop any ongoing operations by clearing all series first
-      try {
-        const series = (chart as any).series?.();
-        if (series && Array.isArray(series)) {
-          series.forEach((s: any) => {
-            try {
-              chart.removeSeries(s);
-            } catch (seriesError) {
-              console.debug(`Error removing series from ${name}:`, seriesError);
-            }
-          });
-        }
-      } catch (seriesCleanupError) {
-        console.debug(`Error cleaning up series for ${name}:`, seriesCleanupError);
-      }
-      
-      // Final removal with additional safety checks
-      setTimeout(() => {
-        try {
-          if (chart && !(chart as any)._internal_disposed) {
-            chart.remove();
-            console.debug(`Successfully removed chart: ${name}`);
-          }
-        } catch (finalError) {
-          console.warn(`Final error removing ${name}:`, finalError);
-        }
-      }, 5);
-      
+      console.debug(`Removing chart: ${name}`);
+      isDisposed.current = true;
+      chart.remove();
     } catch (error) {
-      console.warn(`Error removing ${name}:`, error);
+      console.debug(`Error removing ${name}:`, error);
+      isDisposed.current = true;
     }
   };
 
-  useEffect(() => {
-    if (!mainChartContainerRef.current || isInitializing) return;
 
-    // Clear any pending initialization
-    if (initTimeoutRef.current) {
-      clearTimeout(initTimeoutRef.current);
-    }
+
+
+  useEffect(() => {
+    if (!mainChartContainerRef.current || !data || data.length === 0) return;
 
     setIsInitializing(true);
-
-    // Debounce chart creation to prevent rapid re-creation and allow cleanup to complete
     initTimeoutRef.current = setTimeout(() => {
       if (!mainChartContainerRef.current) {
         setIsInitializing(false);
         return;
       }
+      
+      // Reset disposal flag - we're creating a new chart
+      isDisposed.current = false;
 
-      // Clear existing charts safely with proper disposal sequence
-      try {
-        // First, clear all series references to stop any ongoing operations
-        candlestickSeriesRef.current = null;
-        volumeSeriesRef.current = null;
-        
-        // Clear sub-charts first
-        subChartsRef.current.forEach((chart, id) => {
-          safeRemoveChart(chart, `sub-chart ${id}`);
-        });
-        subChartsRef.current.clear();
-        
-        // Then clear main chart
-        if (mainChartRef.current) {
-          // Add a small delay to ensure any pending operations complete
-          setTimeout(() => {
-            safeRemoveChart(mainChartRef.current, 'main chart');
-          }, 10);
+      // Clear indicator series map for fresh start
+      indicatorSeriesMap.current.clear();
+
+      // Clean up existing sub-chart tooltips
+      subChartTooltips.current.forEach((tooltip) => {
+        try {
+          if (tooltip.parentNode) {
+            document.body.removeChild(tooltip);
+          }
+        } catch (error) {
+          console.debug('Error removing tooltip:', error);
         }
+      });
+      subChartTooltips.current.clear();
+
+      // Clear existing charts
+      if (mainChartRef.current) {
+        safeRemoveChart(mainChartRef.current, 'main chart');
         mainChartRef.current = null;
-        
-      } catch (error) {
-        console.warn('Error during chart cleanup:', error);
-        mainChartRef.current = null;
-        candlestickSeriesRef.current = null;
-        volumeSeriesRef.current = null;
-        subChartsRef.current.clear();
       }
+      subChartsRef.current.forEach((chart, id) => {
+        safeRemoveChart(chart, `sub-chart ${id}`);
+      });
+      subChartsRef.current.clear();
+      candlestickSeriesRef.current = null;
+      volumeSeriesRef.current = null;
 
       const handleResize = () => {
         if (mainChartRef.current && mainChartContainerRef.current) {
@@ -266,11 +340,12 @@ const Chart: React.FC<ChartProps> = ({
         // Add main chart (overlay) indicators
         if (activeIndicators) {
           const mainIndicators = activeIndicators.filter(indicator => indicator.pane === 'main');
-          const indicatorDataMap: { [indicatorId: string]: { time: number; value: number; color: string; name: string }[] } = {};
           
           const processingPromises = mainIndicators.map(async (activeIndicator) => {
             try {
-              const indicatorSeries = await DynamicIndicatorCalculator.calculateIndicator(activeIndicator, data);
+              // Use full data for indicator calculations if available, fallback to visible data
+              const dataForCalculation = fullDataForIndicators?.data || data;
+              const indicatorSeries = await DynamicIndicatorCalculator.calculateIndicator(activeIndicator, dataForCalculation);
               
               indicatorSeries.forEach(series => {
                 // Validate that series.data is an array
@@ -301,27 +376,35 @@ const Chart: React.FC<ChartProps> = ({
                 });
                 lineSeries.setData(validData as any);
                 
-                // Store indicator data for tooltip
-                indicatorDataMap[activeIndicator.id] = validData.map(point => ({
-                  time: point.time,
-                  value: point.value,
+                // Filter indicator data to match visible chart data range
+                const firstVisibleTime = data[0]?.time || 0;
+                const lastVisibleTime = data[data.length - 1]?.time || 0;
+                
+                const visibleIndicatorData = validData.filter(point => 
+                  point.time >= firstVisibleTime && point.time <= lastVisibleTime
+                );
+                
+                // Only add to chart if there's visible data
+                const dataToUse = visibleIndicatorData.length > 0 ? visibleIndicatorData : validData;
+                lineSeries.setData(dataToUse as any);
+                
+                // Store each series individually for generic tooltip handling
+                indicatorSeriesMap.current.set(series.id, {
+                  series: lineSeries,
+                  data: dataToUse,
                   color: series.color,
-                  name: activeIndicator.name
-                }));
+                  name: series.name,
+                  baseIndicator: activeIndicator
+                });
               });
             } catch (error) {
               console.warn(`Error adding indicator ${activeIndicator.name}:`, error);
             }
           });
           
-          // Wait for all indicators to be processed and send data
+          // Wait for all indicators to be processed
           Promise.all(processingPromises).then(() => {
-            if (onIndicatorData && Object.keys(indicatorDataMap).length > 0) {
-              onIndicatorData(prev => ({
-                ...prev,
-                ...indicatorDataMap
-              }));
-            }
+            console.log('All main indicators processed and stored for tooltip handling');
           });
         }
 
@@ -342,9 +425,32 @@ const Chart: React.FC<ChartProps> = ({
                   from: fromIndex,
                   to: toIndex
                 });
+                
+                // Position cursor/crosshair on the last candle
+                setTimeout(() => {
+                  try {
+                    if (mainChart && data.length > 0) {
+                      // Set crosshair position to the last candle
+                      mainChart.timeScale().scrollToPosition(0, false); // Scroll to rightmost position
+                    }
+                  } catch (error) {
+                    console.debug('Error positioning crosshair on last candle:', error);
+                  }
+                }, 150);
               } else if (mainChart && data.length > 0) {
                 // For small datasets, show all data
                 mainChart.timeScale().fitContent();
+                
+                // Position cursor/crosshair on the last candle for small datasets too
+                setTimeout(() => {
+                  try {
+                    if (mainChart && data.length > 0) {
+                      mainChart.timeScale().scrollToPosition(0, false); // Scroll to rightmost position
+                    }
+                  } catch (error) {
+                    console.debug('Error positioning crosshair on last candle (small dataset):', error);
+                  }
+                }, 150);
               }
             } catch (error) {
               console.debug('Error positioning chart at last candle:', error);
@@ -387,15 +493,26 @@ const Chart: React.FC<ChartProps> = ({
           mainChart.subscribeCrosshairMove(mainOnlyCrosshairHandler);
         }
 
+
       } catch (error) {
         console.error('Error creating main chart:', error);
       }
 
       setIsInitializing(false);
+      
+      // Setup chart methods for external use
+      if (onChartReady) {
+        onChartReady({
+          // Chart API methods (if needed)
+        });
+      }
     }, 250); // 250ms debounce to allow cleanup to complete
 
     // Cleanup
     return () => {
+      // Mark as disposed
+      isDisposed.current = true;
+      
       // Cancel any pending initialization
       if (initTimeoutRef.current) {
         clearTimeout(initTimeoutRef.current);
@@ -434,6 +551,7 @@ const Chart: React.FC<ChartProps> = ({
     };
   }, [data, volumeData, settings, activeIndicators]);
 
+
   // Create sub-charts for sub-pane indicators
   useEffect(() => {
     if (isInitializing) return;
@@ -451,8 +569,9 @@ const Chart: React.FC<ChartProps> = ({
 
           subChartsRef.current.set(indicator.id, subChart);
 
-          // Calculate and add indicator data
-          const indicatorSeries = await DynamicIndicatorCalculator.calculateIndicator(indicator, data);
+          // Calculate and add indicator data - use full data if available
+          const dataForCalculation = fullDataForIndicators?.data || data;
+          const indicatorSeries = await DynamicIndicatorCalculator.calculateIndicator(indicator, dataForCalculation);
           
           indicatorSeries.forEach(series => {
             // Validate that series.data is an array
@@ -481,20 +600,26 @@ const Chart: React.FC<ChartProps> = ({
               lineWidth: series.lineWidth as any,
               title: series.name,
             });
-            lineSeries.setData(validData as any);
+            // Filter indicator data to match visible chart data range
+            const firstVisibleTime = data[0]?.time || 0;
+            const lastVisibleTime = data[data.length - 1]?.time || 0;
             
-            // Store indicator data for tooltip (sub-chart indicators)
-            if (onIndicatorData) {
-              onIndicatorData(prev => ({
-                ...prev,
-                [indicator.id]: validData.map(point => ({
-                  time: point.time,
-                  value: point.value,
-                  color: series.color,
-                  name: indicator.name
-                }))
-              }));
-            }
+            const visibleIndicatorData = validData.filter(point => 
+              point.time >= firstVisibleTime && point.time <= lastVisibleTime
+            );
+            
+            // Use visible data if available, otherwise use all valid data
+            const dataToDisplay = visibleIndicatorData.length > 0 ? visibleIndicatorData : validData;
+            lineSeries.setData(dataToDisplay as any);
+            
+            // Store each series individually for generic tooltip handling
+            indicatorSeriesMap.current.set(series.id, {
+              series: lineSeries,
+              data: dataToDisplay,
+              color: series.color,
+              name: series.name,
+              baseIndicator: indicator
+            });
           });
 
           // Position sub-chart at the same range as main chart
@@ -510,13 +635,64 @@ const Chart: React.FC<ChartProps> = ({
                   from: fromIndex,
                   to: toIndex
                 });
+                
+                // Position cursor/crosshair on the last candle for sub-chart
+                setTimeout(() => {
+                  try {
+                    if (subChart && !(subChart as any)._internal_disposed && data.length > 0) {
+                      subChart.timeScale().scrollToPosition(0, false);
+                    }
+                  } catch (error) {
+                    console.debug('Error positioning sub-chart crosshair on last candle:', error);
+                  }
+                }, 200);
               } else if (data.length > 0) {
                 subChart.timeScale().fitContent();
+                
+                // Position cursor/crosshair on the last candle for small sub-chart datasets
+                setTimeout(() => {
+                  try {
+                    if (subChart && !(subChart as any)._internal_disposed && data.length > 0) {
+                      subChart.timeScale().scrollToPosition(0, false);
+                    }
+                  } catch (error) {
+                    console.debug('Error positioning sub-chart crosshair on last candle (small dataset):', error);
+                  }
+                }, 200);
               }
             } catch (error) {
               console.debug('Error positioning sub-chart:', error);
             }
           }, 150);
+
+          // Add individual tooltip handler for this sub-chart
+          const subChartCrosshairHandler = (param: any) => {
+            if (param && param.time !== undefined) {
+              updateSubChartTooltip(indicator.id, param.time, param);
+            } else {
+              // Hide tooltip when crosshair is not visible
+              const tooltip = subChartTooltips.current.get(indicator.id);
+              if (tooltip) {
+                tooltip.style.display = 'none';
+              }
+            }
+          };
+          subChart.subscribeCrosshairMove(subChartCrosshairHandler);
+
+          // Store cleanup function for this sub-chart
+          (subChart as any)._cleanup = () => {
+            try {
+              subChart.unsubscribeCrosshairMove(subChartCrosshairHandler);
+              // Remove tooltip element
+              const tooltip = subChartTooltips.current.get(indicator.id);
+              if (tooltip) {
+                document.body.removeChild(tooltip);
+                subChartTooltips.current.delete(indicator.id);
+              }
+            } catch (error) {
+              console.debug('Error cleaning up sub-chart tooltip:', error);
+            }
+          };
 
           // Sync time scale and crosshair with main chart
           if (mainChartRef.current) {
@@ -603,6 +779,11 @@ const Chart: React.FC<ChartProps> = ({
                   }
                 }
 
+                // Handle indicator tooltips generically (only main pane indicators)
+                if (onIndicatorData && param && param.time !== undefined) {
+                  updateIndicatorTooltipData(param.time, 'main');
+                }
+
                 if (subChart && !(subChart as any)._internal_disposed) {
                   if (param.time !== undefined) {
                     // Try to move sub-chart crosshair to the same time
@@ -629,6 +810,7 @@ const Chart: React.FC<ChartProps> = ({
               syncingCrosshair = true;
               
               try {
+                // Sub-charts will have their own individual tooltips (implemented separately)
                 if (mainChart && !(mainChart as any)._internal_disposed) {
                   if (param.time !== undefined) {
                     // Try to move main chart crosshair to the same time
@@ -714,6 +896,7 @@ const Chart: React.FC<ChartProps> = ({
           <p>Loading chart...</p>
         </div>
       )}
+
       
       {/* Main Chart */}
       <div ref={mainChartContainerRef} className="main-chart-canvas" />

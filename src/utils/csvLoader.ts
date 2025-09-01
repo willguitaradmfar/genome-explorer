@@ -35,6 +35,7 @@ export interface CSVRow {
 export class CSVLoader {
   private static instance: CSVLoader;
   private availableSymbols: CSVSymbol[] = [];
+  private symbolDataCache: Map<string, { data: OHLC[], volumeData: VolumeData[] }> = new Map();
 
   private constructor() {}
 
@@ -245,6 +246,27 @@ export class CSVLoader {
   }
 
   async loadSymbolData(symbol: CSVSymbol): Promise<{ data: OHLC[], volumeData: VolumeData[] }> {
+    // Load full data into cache if not already loaded
+    if (!this.symbolDataCache.has(symbol.filename)) {
+      const fullData = await this.loadFullSymbolData(symbol);
+      this.symbolDataCache.set(symbol.filename, fullData);
+    }
+    
+    const cachedData = this.symbolDataCache.get(symbol.filename)!;
+    
+    console.log(`Loaded ${cachedData.data.length} candles for ${symbol.displayName}`);
+    
+    return {
+      data: cachedData.data,
+      volumeData: cachedData.volumeData
+    };
+  }
+
+  getFullData(symbol: CSVSymbol): { data: OHLC[], volumeData: VolumeData[] } | null {
+    return this.symbolDataCache.get(symbol.filename) || null;
+  }
+
+  private async loadFullSymbolData(symbol: CSVSymbol): Promise<{ data: OHLC[], volumeData: VolumeData[] }> {
     try {
       if (window.require) {
         const fs = window.require('fs');
@@ -261,6 +283,7 @@ export class CSVLoader {
         const filePath = path.join(symbolsPath, symbol.filename);
         const csvContent = fs.readFileSync(filePath, 'utf8');
         
+        console.log(`Loading full data for ${symbol.displayName}...`);
         return this.parseCSVContent(csvContent);
       } else {
         // Fallback: try to fetch from public folder or generate sample data
@@ -268,7 +291,7 @@ export class CSVLoader {
         return this.generateSampleData(symbol.symbol);
       }
     } catch (error) {
-      console.error('Error loading symbol data:', error);
+      console.error('Error loading full symbol data:', error);
       return this.generateSampleData(symbol.symbol);
     }
   }

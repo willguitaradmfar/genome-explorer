@@ -174,17 +174,25 @@ const App: React.FC = () => {
     
     try {
       const csvLoader = CSVLoader.getInstance();
-      const { data, volumeData: volume } = await csvLoader.loadSymbolData(symbol);
+      const fullData = csvLoader.getFullData(symbol);
       
-      setChartData(data);
-      setVolumeData(volume);
+      if (fullData) {
+        // Use cached full data
+        setChartData(fullData.data);
+        setVolumeData(fullData.volumeData);
+        console.log(`Loaded ${fullData.data.length} data points for ${symbol.displayName} from cache`);
+      } else {
+        // Load all data directly
+        const { data, volumeData: volume } = await csvLoader.loadSymbolData(symbol);
+        setChartData(data);
+        setVolumeData(volume);
+        console.log(`Loaded ${data.length} data points for ${symbol.displayName}`);
+      }
       
       // Save to preferences if requested
       if (saveToPreferences && preferencesManager) {
         await preferencesManager.saveLastSelectedSymbol(symbol);
       }
-      
-      console.log(`Loaded ${data.length} data points for ${symbol.displayName}`);
     } catch (error) {
       console.error('Error loading symbol data:', error);
       // Fallback to generated data
@@ -312,6 +320,7 @@ const App: React.FC = () => {
     setShowDataFolderModal(false);
   };
 
+
   // Load saved data path on startup
   useEffect(() => {
     const dataFolderManager = DataFolderManager.getInstance();
@@ -345,6 +354,8 @@ const App: React.FC = () => {
               setIndicatorData(dataOrUpdater);
             }
           }}
+          fullDataForIndicators={currentSymbol ? CSVLoader.getInstance().getFullData(currentSymbol) : null}
+          onChartReady={() => {}}
         />
       </div>
 
