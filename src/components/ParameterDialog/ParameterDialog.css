@@ -1,0 +1,201 @@
+.parameter-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.parameter-dialog {
+  background: #2a2e39;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.parameter-dialog-header {
+  padding: 24px 24px 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.parameter-dialog-title {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.parameter-dialog-description {
+  margin: 0;
+  font-size: 14px;
+  color: #a0a8b8;
+  line-height: 1.4;
+}
+
+.parameter-dialog-form {
+  padding: 0;
+}
+
+.parameter-inputs {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.parameter-no-params {
+  padding: 24px;
+  text-align: center;
+}
+
+.parameter-no-params p {
+  margin: 0;
+  color: #a0a8b8;
+  font-style: italic;
+}
+
+.parameter-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.parameter-checkbox-group {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.parameter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+
+.parameter-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #ffffff;
+}
+
+.parameter-input,
+.parameter-select {
+  padding: 10px 12px;
+  background: #1e222d;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.parameter-input:focus,
+.parameter-select:focus {
+  outline: none;
+  border-color: #2962ff;
+  box-shadow: 0 0 0 3px rgba(41, 98, 255, 0.1);
+}
+
+.parameter-input-error {
+  border-color: #f44336;
+}
+
+.parameter-input-error:focus {
+  border-color: #f44336;
+  box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.1);
+}
+
+.parameter-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #2962ff;
+  cursor: pointer;
+}
+
+.parameter-checkbox-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.parameter-error {
+  font-size: 12px;
+  color: #f44336;
+  margin-top: 4px;
+}
+
+.parameter-dialog-actions {
+  padding: 16px 24px 24px 24px;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.parameter-dialog-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+}
+
+.parameter-dialog-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.parameter-dialog-cancel:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.parameter-dialog-confirm {
+  background: #2962ff;
+  color: #ffffff;
+}
+
+.parameter-dialog-confirm:hover {
+  background: #1e4ba8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(41, 98, 255, 0.3);
+}
+
+.parameter-dialog-confirm:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(41, 98, 255, 0.3);
+}
+
+/* Scrollbar styling */
+.parameter-dialog::-webkit-scrollbar {
+  width: 6px;
+}
+
+.parameter-dialog::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.parameter-dialog::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.parameter-dialog::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
