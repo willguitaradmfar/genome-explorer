@@ -1,29 +1,60 @@
-# Sistema de Backtest com Visualização no TradingView
+# Genome Explorer 🧬📊
 
-## Objetivo
-Construir uma aplicação desktop para **backtesting de estratégias financeiras**, utilizando a **TradingView Charting Library** para visualização gráfica.
+Advanced Trading Analysis Desktop Application built with Electron, React, and TypeScript.
 
-## Tecnologias Utilizadas
-- **Electron** → Aplicação desktop multiplataforma (Windows, macOS, Linux).  
-- **Node.js** → Backend responsável pelo motor de backtest e integração de dados.  
-- **React + TypeScript** → Frontend modular e tipado.  
-- **TailwindCSS** → Estilização rápida e consistente.  
-- **TradingView Charting Library** → Renderização avançada de gráficos financeiros.  
+## Features
 
-## Arquitetura
-- **Electron Main Process** → Coordena backend Node.js e frontend React.  
-- **Renderer (React + TailwindCSS)** → Interface do usuário.  
-- **Node.js Backend** → Camada de lógica e processamento.  
-- **TradingView Lib** → Componente gráfico integrado para visualização.  
+- 📊 **Real-time Trading Charts** - Interactive candlestick charts with Lightweight Charts
+- 📈 **Technical Indicators** - RSI, SMA, EMA, MACD and more
+- ⌨️ **Command Palette** - Quick navigation with keyboard shortcuts
+- 💾 **Data Persistence** - IndexedDB for user preferences
+- 🎨 **Modern UI** - Dark theme with glassmorphism effects
+- 🖱️ **OHLC Tooltips** - Hover over candles for detailed information
+- 📱 **Cross-platform** - Windows, macOS, and Linux support
 
-## Benefícios
-- Aplicação **multiplataforma**.  
-- Integração com gráficos de alta qualidade do **TradingView**.  
-- Base sólida em **TypeScript** para melhor manutenção.  
-- Estilo moderno e responsivo com **TailwindCSS**.  
+## Keyboard Shortcuts
 
+- `Ctrl+P` - Search and switch symbols
+- `Ctrl+I` - Add technical indicators
 
-## visual
+## Development
 
-A aplicação deve ter um visual fullscreen com os componentes de controle flutuando sobre o grafico igual ao Google Maps.# genome-trandview
-# genome-explorer
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev:electron
+
+# Build for production
+npm run build
+
+# Build distributables
+npm run dist
+```
+
+## Building Releases
+
+This project uses GitHub Actions to automatically build releases for all platforms when you create a new tag:
+
+```bash
+# Create and push a new tag
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+## Download
+
+Visit the [Releases](https://github.com/username/genome-explorer/releases) page to download the latest version for your platform:
+
+- **Windows**: `.exe` files (installer and portable)
+- **macOS**: `.dmg` and `.zip` files
+- **Linux**: `.AppImage` and `.deb` packages
+
+## Author
+
+William Lima Pereira
+
+## License
+
+MIT License

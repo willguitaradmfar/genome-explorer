@@ -19,7 +19,7 @@ declare global {
 }
 
 const TitleBar: React.FC<TitleBarProps> = ({ 
-  title = 'Trading Backtest System', 
+  title = 'Genome Explorer', 
   currentSymbol, 
   timeframe 
 }) => {

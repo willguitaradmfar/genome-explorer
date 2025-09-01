@@ -261,7 +261,7 @@ const App: React.FC = () => {
     <div className="relative w-screen h-screen overflow-hidden bg-chart-bg">
       {/* Custom Title Bar */}
       <TitleBar 
-        title="Trading Backtest System" 
+        title="Genome Explorer" 
         currentSymbol={currentSymbol?.displayName}
         timeframe={currentSymbol?.timeframe}
       />

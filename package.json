@@ -1,7 +1,9 @@
 {
-  "name": "electron-trading-app",
+  "name": "genome-explorer",
   "version": "1.0.0",
-  "description": "Trading application with Electron, React and TypeScript",
+  "description": "Genome Explorer - Advanced Trading Analysis Desktop Application",
+  "homepage": "https://github.com/username/genome-explorer",
+  "repository": "https://github.com/username/genome-explorer",
   "main": "main.js",
   "scripts": {
     "start": "npm run build && electron .",
@@ -11,15 +13,21 @@
     "electron": "electron .",
     "electron-dev": "wait-on http://localhost:3000 && ELECTRON_IS_DEV=1 electron .",
     "electron-only": "ELECTRON_IS_DEV=1 electron .",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux"
   },
   "keywords": [
     "electron",
     "react",
     "typescript",
-    "trading"
+    "trading",
+    "charts",
+    "technical-analysis",
+    "desktop-app"
   ],
-  "author": "",
+  "author": "William Lima Pereira",
   "license": "MIT",
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.10",
