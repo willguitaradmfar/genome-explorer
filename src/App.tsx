@@ -5,7 +5,9 @@ import CommandPalette from './components/CommandPalette/CommandPalette';
 import IndicatorPanel from './components/IndicatorPanel/IndicatorPanel';
 import ParameterDialog from './components/ParameterDialog/ParameterDialog';
 import OHLCTooltip from './components/OHLCTooltip/OHLCTooltip';
+import DataFolderModal from './components/DataFolderModal/DataFolderModal';
 import { CSVLoader, CSVSymbol } from './utils/csvLoader';
+import { DataFolderManager } from './utils/dataFolderManager';
 import { ActiveIndicator, Indicator } from './types/indicator.types';
 import { 
   OHLC, 
@@ -35,6 +37,11 @@ const App: React.FC = () => {
     position: { x: 0, y: 0 },
     isVisible: false
   });
+  const [indicatorData, setIndicatorData] = useState<{
+    [indicatorId: string]: { time: number; value: number; color: string; name: string }[]
+  }>({});
+  const [showDataFolderModal, setShowDataFolderModal] = useState(false);
+  const [currentDataPath, setCurrentDataPath] = useState<string>('');
 
   const [chartSettings] = useState<ChartSettings>({
     theme: 'dark',
@@ -131,7 +138,7 @@ const App: React.FC = () => {
     initializeDatabase();
   }, [generateSampleData]);
 
-  // Global keyboard listener for Ctrl+P and Ctrl+I
+  // Global keyboard listener for Ctrl+P, Ctrl+I and Ctrl+O
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === 'p') {
@@ -142,6 +149,9 @@ const App: React.FC = () => {
         e.preventDefault();
         setCommandPaletteQuery('+');
         setShowCommandPalette(true);
+      } else if (e.ctrlKey && e.key === 'o') {
+        e.preventDefault();
+        setShowDataFolderModal(true);
       }
     };
 
@@ -245,6 +255,25 @@ const App: React.FC = () => {
     setSelectedIndicatorForConfig(null);
   };
 
+  // Function to get indicator values for a specific timestamp
+  const getIndicatorValuesForTime = (timestamp: number): { [indicatorId: string]: { value: number; color: string; name: string } } => {
+    const result: { [indicatorId: string]: { value: number; color: string; name: string } } = {};
+    
+    Object.entries(indicatorData).forEach(([indicatorId, data]) => {
+      // Find the closest data point for this timestamp
+      const dataPoint = data.find(d => d.time === timestamp);
+      if (dataPoint) {
+        result[indicatorId] = {
+          value: dataPoint.value,
+          color: dataPoint.color,
+          name: dataPoint.name
+        };
+      }
+    });
+    
+    return result;
+  };
+
   const handleRemoveIndicator = async (indicatorId: string) => {
     const updatedIndicators = activeIndicators.filter(indicator => indicator.id !== indicatorId);
     setActiveIndicators(updatedIndicators);
@@ -256,6 +285,39 @@ const App: React.FC = () => {
     
     console.log(`Removed indicator: ${indicatorId}`);
   };
+
+  const handleDataFolderConfirm = async (path: string) => {
+    try {
+      const dataFolderManager = DataFolderManager.getInstance();
+      await dataFolderManager.setDataPath(path);
+      setCurrentDataPath(path);
+      setShowDataFolderModal(false);
+      
+      // Reload CSV loader with new path
+      const csvLoader = CSVLoader.getInstance();
+      const symbols = await csvLoader.initializeSymbols();
+      
+      if (symbols.length > 0) {
+        handleSymbolChange(symbols[0]);
+      }
+      
+      console.log(`Data folder configured: ${path}`);
+    } catch (error) {
+      console.error('Error configuring data folder:', error);
+      alert(`Erro ao configurar pasta de dados: ${error}`);
+    }
+  };
+
+  const handleDataFolderCancel = () => {
+    setShowDataFolderModal(false);
+  };
+
+  // Load saved data path on startup
+  useEffect(() => {
+    const dataFolderManager = DataFolderManager.getInstance();
+    const defaultPath = dataFolderManager.getDataPath();
+    setCurrentDataPath(defaultPath);
+  }, []);
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-chart-bg">
@@ -273,7 +335,16 @@ const App: React.FC = () => {
           volumeData={volumeData}
           activeIndicators={activeIndicators}
           settings={chartSettings}
-          onCrosshairMove={setOhlcTooltip}
+          onCrosshairMove={(tooltip) => {
+            setOhlcTooltip(tooltip);
+          }}
+          onIndicatorData={(dataOrUpdater) => {
+            if (typeof dataOrUpdater === 'function') {
+              setIndicatorData(prev => dataOrUpdater(prev));
+            } else {
+              setIndicatorData(dataOrUpdater);
+            }
+          }}
         />
       </div>
 
@@ -339,6 +410,15 @@ const App: React.FC = () => {
         data={ohlcTooltip.data}
         position={ohlcTooltip.position}
         isVisible={ohlcTooltip.isVisible}
+        indicatorValues={ohlcTooltip.data ? getIndicatorValuesForTime(ohlcTooltip.data.time) : {}}
+      />
+
+      {/* Data Folder Modal */}
+      <DataFolderModal
+        isVisible={showDataFolderModal}
+        onConfirm={handleDataFolderConfirm}
+        onCancel={handleDataFolderCancel}
+        currentPath={currentDataPath}
       />
     </div>
   );

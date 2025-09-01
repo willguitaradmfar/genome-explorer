@@ -27,7 +27,7 @@
     "technical-analysis",
     "desktop-app"
   ],
-  "author": "William Lima Pereira",
+  "author": { "name": "William Lima Pereira", "email": "willguitaradmfar@gmail.com" },
   "license": "MIT",
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.10",

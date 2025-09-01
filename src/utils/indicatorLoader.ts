@@ -1,4 +1,5 @@
 import { Indicator, ActiveIndicator } from '../types/indicator.types';
+import { DataFolderManager } from './dataFolderManager';
 
 export class IndicatorLoader {
   private static instance: IndicatorLoader;
@@ -19,12 +20,22 @@ export class IndicatorLoader {
       return this.availableIndicators;
     }
     try {
+      // Get configured data path
+      const dataFolderManager = DataFolderManager.getInstance();
+      const indicatorsPath = dataFolderManager.getIndicatorsPath();
+      
+      if (!indicatorsPath) {
+        console.warn('Data folder not configured. Please configure the data folder first.');
+        this.availableIndicators = [];
+        return this.availableIndicators;
+      }
+      
       // In Electron, we can read files directly
       if (window.require) {
         const fs = window.require('fs');
         const path = window.require('path');
         
-        const dataDir = path.join(process.cwd(), 'data', 'indicators');
+        const dataDir = indicatorsPath;
         
         try {
           const files = fs.readdirSync(dataDir);

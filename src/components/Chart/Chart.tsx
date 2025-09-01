@@ -23,6 +23,13 @@ interface ChartProps {
     position: { x: number; y: number };
     isVisible: boolean;
   }) => void;
+  onIndicatorData?: (dataOrUpdater: {
+    [indicatorId: string]: { time: number; value: number; color: string; name: string }[]
+  } | ((prev: {
+    [indicatorId: string]: { time: number; value: number; color: string; name: string }[]
+  }) => {
+    [indicatorId: string]: { time: number; value: number; color: string; name: string }[]
+  })) => void;
 }
 
 const Chart: React.FC<ChartProps> = ({ 
@@ -31,7 +38,8 @@ const Chart: React.FC<ChartProps> = ({
   activeIndicators,
   settings,
   onDataUpdate,
-  onCrosshairMove
+  onCrosshairMove,
+  onIndicatorData
 }) => {
   const mainChartContainerRef = useRef<HTMLDivElement>(null);
   const mainChartRef = useRef<IChartApi | null>(null);
@@ -258,20 +266,61 @@ const Chart: React.FC<ChartProps> = ({
         // Add main chart (overlay) indicators
         if (activeIndicators) {
           const mainIndicators = activeIndicators.filter(indicator => indicator.pane === 'main');
-          mainIndicators.forEach(async (activeIndicator) => {
+          const indicatorDataMap: { [indicatorId: string]: { time: number; value: number; color: string; name: string }[] } = {};
+          
+          const processingPromises = mainIndicators.map(async (activeIndicator) => {
             try {
               const indicatorSeries = await DynamicIndicatorCalculator.calculateIndicator(activeIndicator, data);
               
               indicatorSeries.forEach(series => {
+                // Validate that series.data is an array
+                if (!series.data || !Array.isArray(series.data)) {
+                  console.warn(`Invalid data structure for overlay indicator ${activeIndicator.name}:`, series.data);
+                  return;
+                }
+                
+                // Validate and filter data
+                const validData = series.data.filter(point => 
+                  point && 
+                  point.time !== undefined && 
+                  point.time !== null && 
+                  point.value !== undefined && 
+                  point.value !== null && 
+                  !isNaN(point.value)
+                );
+                
+                if (validData.length === 0) {
+                  console.warn(`No valid data for overlay indicator ${activeIndicator.name}`);
+                  return;
+                }
+                
                 const lineSeries = mainChart.addLineSeries({
                   color: series.color,
                   lineWidth: series.lineWidth as any,
                   title: series.name,
                 });
-                lineSeries.setData(series.data as any);
+                lineSeries.setData(validData as any);
+                
+                // Store indicator data for tooltip
+                indicatorDataMap[activeIndicator.id] = validData.map(point => ({
+                  time: point.time,
+                  value: point.value,
+                  color: series.color,
+                  name: activeIndicator.name
+                }));
               });
             } catch (error) {
               console.warn(`Error adding indicator ${activeIndicator.name}:`, error);
+            }
+          });
+          
+          // Wait for all indicators to be processed and send data
+          Promise.all(processingPromises).then(() => {
+            if (onIndicatorData && Object.keys(indicatorDataMap).length > 0) {
+              onIndicatorData(prev => ({
+                ...prev,
+                ...indicatorDataMap
+              }));
             }
           });
         }
@@ -406,12 +455,46 @@ const Chart: React.FC<ChartProps> = ({
           const indicatorSeries = await DynamicIndicatorCalculator.calculateIndicator(indicator, data);
           
           indicatorSeries.forEach(series => {
+            // Validate that series.data is an array
+            if (!series.data || !Array.isArray(series.data)) {
+              console.warn(`Invalid data structure for indicator ${indicator.name}:`, series.data);
+              return;
+            }
+            
+            // Validate and filter data
+            const validData = series.data.filter(point => 
+              point && 
+              point.time !== undefined && 
+              point.time !== null && 
+              point.value !== undefined && 
+              point.value !== null && 
+              !isNaN(point.value)
+            );
+            
+            if (validData.length === 0) {
+              console.warn(`No valid data for indicator ${indicator.name}`);
+              return;
+            }
+            
             const lineSeries = subChart.addLineSeries({
               color: series.color,
               lineWidth: series.lineWidth as any,
               title: series.name,
             });
-            lineSeries.setData(series.data as any);
+            lineSeries.setData(validData as any);
+            
+            // Store indicator data for tooltip (sub-chart indicators)
+            if (onIndicatorData) {
+              onIndicatorData(prev => ({
+                ...prev,
+                [indicator.id]: validData.map(point => ({
+                  time: point.time,
+                  value: point.value,
+                  color: series.color,
+                  name: indicator.name
+                }))
+              }));
+            }
           });
 
           // Position sub-chart at the same range as main chart

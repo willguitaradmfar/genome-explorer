@@ -5,9 +5,15 @@ interface OHLCTooltipProps {
   data: OHLC | null;
   position: { x: number; y: number };
   isVisible: boolean;
+  indicatorValues?: { [indicatorId: string]: { value: number; color: string; name: string } };
 }
 
-const OHLCTooltip: React.FC<OHLCTooltipProps> = ({ data, position, isVisible }) => {
+const OHLCTooltip: React.FC<OHLCTooltipProps> = ({ 
+  data, 
+  position, 
+  isVisible, 
+  indicatorValues = {} 
+}) => {
   if (!isVisible || !data) return null;
 
   const formatPrice = (price: number): string => {
@@ -81,6 +87,32 @@ const OHLCTooltip: React.FC<OHLCTooltipProps> = ({ data, position, isVisible }) 
             <span>Body: {formatPrice(Math.abs(data.close - data.open))}</span>
           </div>
         </div>
+
+        {/* Indicator Values */}
+        {Object.keys(indicatorValues).length > 0 && (
+          <div className="mt-3 pt-2 border-t border-gray-600/20">
+            <div className="text-xs text-gray-400 mb-2 font-medium">Indicators:</div>
+            <div className="space-y-1">
+              {Object.entries(indicatorValues).map(([indicatorId, indicator]) => (
+                <div key={indicatorId} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: indicator.color }}
+                    />
+                    <span className="text-gray-300 font-medium">{indicator.name}:</span>
+                  </div>
+                  <span 
+                    className="font-mono font-medium"
+                    style={{ color: indicator.color }}
+                  >
+                    {indicator.value.toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

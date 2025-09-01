@@ -46,9 +46,10 @@ const IndicatorPanel: React.FC<IndicatorPanelProps> = ({
                 <div 
                   className="w-2 h-2 rounded-full flex-shrink-0"
                   style={{ 
-                    backgroundColor: indicator.style.color || 
-                                   indicator.style.macdColor || 
-                                   indicator.style.upperColor || 
+                    backgroundColor: indicator.values?.color || 
+                                   indicator.style?.color || 
+                                   indicator.style?.macdColor || 
+                                   indicator.style?.upperColor || 
                                    '#2196F3' 
                   }}
                 />
@@ -61,7 +62,11 @@ const IndicatorPanel: React.FC<IndicatorPanelProps> = ({
                     {indicator.values && Object.keys(indicator.values).length > 0 && (
                       <span className="ml-1 text-white/80">
                         ({Object.entries(indicator.values)
-                          .map(([_key, value]) => {
+                          .map(([key, value]) => {
+                            // Skip color parameter in display (it's shown as the dot)
+                            if (key === 'color') {
+                              return null;
+                            }
                             // Format parameter display
                             if (typeof value === 'number') {
                               return value.toString();

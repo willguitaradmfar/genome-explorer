@@ -1,4 +1,5 @@
 import { OHLC, VolumeData } from '../types/chart.types';
+import { DataFolderManager } from './dataFolderManager';
 
 export interface CSVSymbol {
   filename: string;
@@ -50,12 +51,22 @@ export class CSVLoader {
       return this.availableSymbols;
     }
     try {
+      // Get configured data path
+      const dataFolderManager = DataFolderManager.getInstance();
+      const symbolsPath = dataFolderManager.getSymbolsPath();
+      
+      if (!symbolsPath) {
+        console.warn('Data folder not configured. Please configure the data folder first.');
+        this.availableSymbols = [];
+        return this.availableSymbols;
+      }
+      
       // In Electron, we can read files directly
       if (window.require) {
         const fs = window.require('fs');
         const path = window.require('path');
         
-        const dataDir = path.join(process.cwd(), 'data', 'symbols');
+        const dataDir = symbolsPath;
         
         try {
           const files = fs.readdirSync(dataDir);
@@ -239,7 +250,15 @@ export class CSVLoader {
         const fs = window.require('fs');
         const path = window.require('path');
         
-        const filePath = path.join(process.cwd(), 'data', 'symbols', symbol.filename);
+        const dataFolderManager = DataFolderManager.getInstance();
+        const symbolsPath = dataFolderManager.getSymbolsPath();
+        
+        if (!symbolsPath) {
+          console.warn('Data folder not configured');
+          return this.generateSampleData(symbol.symbol);
+        }
+        
+        const filePath = path.join(symbolsPath, symbol.filename);
         const csvContent = fs.readFileSync(filePath, 'utf8');
         
         return this.parseCSVContent(csvContent);
