@@ -1,0 +1,10 @@
+{
+  "symbol": "ETHUSDT",
+  "name": "ETH",
+  "description": "ETH vs USDT",
+  "exchange": "Binance",
+  "type": "crypto",
+  "timeframe": "1h",
+  "baseAsset": "ETH",
+  "quoteAsset": "USDT"
+}

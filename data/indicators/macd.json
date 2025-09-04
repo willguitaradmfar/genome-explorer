@@ -1,0 +1,42 @@
+{
+  "id": "macd",
+  "name": "MACD",
+  "description": "Moving Average Convergence Divergence",
+  "type": "oscillator",
+  "pane": "sub",
+  "parameters": {
+    "fastPeriod": {
+      "type": "number",
+      "default": 12,
+      "min": 5,
+      "max": 50,
+      "label": "Fast Period"
+    },
+    "slowPeriod": {
+      "type": "number",
+      "default": 26,
+      "min": 10,
+      "max": 100,
+      "label": "Slow Period"
+    },
+    "signalPeriod": {
+      "type": "number",
+      "default": 9,
+      "min": 3,
+      "max": 30,
+      "label": "Signal Period"
+    },
+    "color": {
+      "type": "color",
+      "default": "#00BCD4",
+      "label": "Color"
+    }
+  },
+  "style": {
+    "macdColor": "#00BCD4",
+    "signalColor": "#FF5722",
+    "histogramColor": "#4CAF50",
+    "lineWidth": 2,
+    "lineStyle": "solid"
+  }
+}

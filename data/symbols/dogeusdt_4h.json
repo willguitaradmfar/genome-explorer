@@ -1,0 +1,10 @@
+{
+  "symbol": "DOGEUSDT",
+  "name": "DOGE",
+  "description": "DOGE vs USDT",
+  "exchange": "Binance",
+  "type": "crypto",
+  "timeframe": "4h",
+  "baseAsset": "DOGE",
+  "quoteAsset": "USDT"
+}

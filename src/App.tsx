@@ -14,7 +14,8 @@ import {
   VolumeData,
   ChartSettings 
 } from './types/chart.types';
-import { PreferencesManager } from './database';
+import { UserPreferencesRepository } from './repositories';
+import { IndicatorManager } from './utils/indicatorManager';
 
 const App: React.FC = () => {
   const [chartData, setChartData] = useState<OHLC[]>([]);
@@ -24,7 +25,7 @@ const App: React.FC = () => {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [commandPaletteQuery, setCommandPaletteQuery] = useState('>');
   const [activeIndicators, setActiveIndicators] = useState<ActiveIndicator[]>([]);
-  const [preferencesManager, setPreferencesManager] = useState<PreferencesManager | null>(null);
+  const [preferencesRepository, setPreferencesRepository] = useState<UserPreferencesRepository | null>(null);
   const [isLoadingPreferences, setIsLoadingPreferences] = useState(true);
   const [showParameterDialog, setShowParameterDialog] = useState(false);
   const [selectedIndicatorForConfig, setSelectedIndicatorForConfig] = useState<Indicator | null>(null);
@@ -92,15 +93,16 @@ const App: React.FC = () => {
   useEffect(() => {
     const initializeDatabase = async () => {
       try {
-        const prefsManager = PreferencesManager.getInstance();
-        await prefsManager.initialize();
-        setPreferencesManager(prefsManager);
+        const prefsRepo = UserPreferencesRepository.getInstance();
+        await prefsRepo.initialize();
+        setPreferencesRepository(prefsRepo);
         
-        // Load saved preferences
-        const savedIndicators = await prefsManager.getActiveIndicators();
-        const lastSymbol = await prefsManager.getLastSelectedSymbol();
+        // Initialize indicator manager
+        const indicatorManager = IndicatorManager.getInstance();
+        await indicatorManager.initialize();
         
-        setActiveIndicators(savedIndicators);
+        // Load last selected symbol (indicators will be loaded after chart is ready)
+        const lastSymbol = await prefsRepo.getLastSelectedSymbol();
         
         // Load symbols and set the last selected one or first available
         const csvLoader = CSVLoader.getInstance();
@@ -138,18 +140,21 @@ const App: React.FC = () => {
     initializeDatabase();
   }, [generateSampleData]);
 
-  // Global keyboard listener for Ctrl+P, Ctrl+I and Ctrl+O
+  // Global keyboard listener for Cmd/Ctrl+P, Cmd/Ctrl+I and Cmd/Ctrl+O
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === 'p') {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modifierKey = isMac ? e.metaKey : e.ctrlKey;
+      
+      if (modifierKey && e.key === 'p') {
         e.preventDefault();
         setCommandPaletteQuery('>');
         setShowCommandPalette(true);
-      } else if (e.ctrlKey && e.key === 'i') {
+      } else if (modifierKey && e.key === 'i') {
         e.preventDefault();
         setCommandPaletteQuery('+');
         setShowCommandPalette(true);
-      } else if (e.ctrlKey && e.key === 'o') {
+      } else if (modifierKey && e.key === 'o') {
         e.preventDefault();
         setShowDataFolderModal(true);
       }
@@ -162,11 +167,11 @@ const App: React.FC = () => {
   // Cleanup database connection on component unmount
   useEffect(() => {
     return () => {
-      if (preferencesManager) {
-        preferencesManager.close();
+      if (preferencesRepository) {
+        preferencesRepository.close();
       }
     };
-  }, [preferencesManager]);
+  }, [preferencesRepository]);
 
   const handleSymbolChange = async (symbol: CSVSymbol, saveToPreferences: boolean = true) => {
     setIsLoadingData(true);
@@ -174,24 +179,22 @@ const App: React.FC = () => {
     
     try {
       const csvLoader = CSVLoader.getInstance();
-      const fullData = csvLoader.getFullData(symbol);
       
-      if (fullData) {
-        // Use cached full data
-        setChartData(fullData.data);
-        setVolumeData(fullData.volumeData);
-        console.log(`Loaded ${fullData.data.length} data points for ${symbol.displayName} from cache`);
-      } else {
-        // Load all data directly
-        const { data, volumeData: volume } = await csvLoader.loadSymbolData(symbol);
-        setChartData(data);
-        setVolumeData(volume);
-        console.log(`Loaded ${data.length} data points for ${symbol.displayName}`);
-      }
+      // Load data from IndexedDB or file via repository
+      const { data, volumeData: volume } = await csvLoader.loadSymbolData(symbol);
+      setChartData(data);
+      setVolumeData(volume);
+      console.log(`Loaded ${data.length} data points for ${symbol.displayName}`);
+      
+      // Update current symbol in IndicatorManager
+      const indicatorManager = IndicatorManager.getInstance();
+      await indicatorManager.setCurrentSymbol(symbol);
+      
+      console.log(`Symbol changed to ${symbol.displayName}, chart data loaded`);
       
       // Save to preferences if requested
-      if (saveToPreferences && preferencesManager) {
-        await preferencesManager.saveLastSelectedSymbol(symbol);
+      if (saveToPreferences && preferencesRepository) {
+        await preferencesRepository.saveLastSelectedSymbol(symbol);
       }
     } catch (error) {
       console.error('Error loading symbol data:', error);
@@ -220,34 +223,26 @@ const App: React.FC = () => {
   };
 
   const addIndicatorWithValues = async (indicator: Indicator, values: { [key: string]: any }) => {
-    // Extract default values and merge with provided values
-    const finalValues: { [key: string]: any } = {};
-    Object.keys(indicator.parameters).forEach(key => {
-      const param = indicator.parameters[key];
-      finalValues[key] = values[key] !== undefined ? values[key] : param.default;
-    });
-    
-    // Generate unique ID for this instance
-    const instanceId = `${indicator.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    const activeIndicator: ActiveIndicator = {
-      ...indicator,
-      id: instanceId, // Use unique instance ID
-      baseId: indicator.id, // Original ID for loading JS files
-      isActive: true,
-      addedAt: new Date(),
-      values: finalValues
-    };
-    
-    const updatedIndicators = [...activeIndicators, activeIndicator];
-    setActiveIndicators(updatedIndicators);
-    
-    // Save to preferences
-    if (preferencesManager) {
-      await preferencesManager.saveActiveIndicators(updatedIndicators);
+    try {
+      // Extract default values and merge with provided values
+      const finalValues: { [key: string]: any } = {};
+      Object.keys(indicator.parameters).forEach(key => {
+        const param = indicator.parameters[key];
+        finalValues[key] = values[key] !== undefined ? values[key] : param.default;
+      });
+      
+      // Use IndicatorManager to add and persist the indicator globally
+      const indicatorManager = IndicatorManager.getInstance();
+      const activeIndicator = await indicatorManager.addIndicator(indicator, finalValues);
+      
+      // Update the UI state incrementally - just add the new indicator
+      const updatedIndicators = [...activeIndicators, activeIndicator];
+      setActiveIndicators(updatedIndicators);
+      
+      console.log(`Added and saved global indicator: ${indicator.name}`, finalValues);
+    } catch (error) {
+      console.error('Failed to add indicator:', error);
     }
-    
-    console.log(`Added indicator: ${indicator.name}`, finalValues);
   };
 
   const handleParameterDialogConfirm = async (values: { [key: string]: any }) => {
@@ -283,15 +278,40 @@ const App: React.FC = () => {
   };
 
   const handleRemoveIndicator = async (indicatorId: string) => {
-    const updatedIndicators = activeIndicators.filter(indicator => indicator.id !== indicatorId);
-    setActiveIndicators(updatedIndicators);
-    
-    // Save to preferences
-    if (preferencesManager) {
-      await preferencesManager.saveActiveIndicators(updatedIndicators);
+    try {
+      // Find the indicator to remove
+      const indicatorToRemove = activeIndicators.find(indicator => indicator.id === indicatorId);
+      
+      if (!indicatorToRemove) {
+        console.error('Indicator not found for removal:', indicatorId);
+        return;
+      }
+
+      // Remove from IndicatorManager persistence
+      const indicatorManager = IndicatorManager.getInstance();
+      await indicatorManager.removeIndicator(indicatorToRemove);
+
+      // Update UI state
+      const updatedIndicators = activeIndicators.filter(indicator => indicator.id !== indicatorId);
+      setActiveIndicators(updatedIndicators);
+      
+      console.log(`Removed and deleted indicator: ${indicatorToRemove.name} (${indicatorId})`);
+    } catch (error) {
+      console.error('Failed to remove indicator:', error);
     }
-    
-    console.log(`Removed indicator: ${indicatorId}`);
+  };
+
+  // Função chamada quando o gráfico está pronto para carregar indicadores
+  const handleChartReady = async () => {
+    try {
+      console.log('[App] Chart is ready, loading global indicators...');
+      const indicatorManager = IndicatorManager.getInstance();
+      const globalIndicators = await indicatorManager.loadGlobalIndicators();
+      setActiveIndicators(globalIndicators);
+      console.log(`[App] Loaded ${globalIndicators.length} global indicators after chart ready`);
+    } catch (error) {
+      console.error('[App] Failed to load indicators after chart ready:', error);
+    }
   };
 
   const handleDataFolderConfirm = async (path: string) => {
@@ -354,8 +374,8 @@ const App: React.FC = () => {
               setIndicatorData(dataOrUpdater);
             }
           }}
-          fullDataForIndicators={currentSymbol ? CSVLoader.getInstance().getFullData(currentSymbol) : null}
-          onChartReady={() => {}}
+          fullDataForIndicators={null}
+          onChartReady={handleChartReady}
         />
       </div>
 

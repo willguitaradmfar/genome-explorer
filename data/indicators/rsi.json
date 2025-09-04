@@ -1,0 +1,40 @@
+{
+  "id": "rsi",
+  "name": "RSI",
+  "description": "Relative Strength Index",
+  "type": "oscillator",
+  "pane": "sub",
+  "parameters": {
+    "period": {
+      "type": "number",
+      "default": 14,
+      "min": 2,
+      "max": 50,
+      "label": "Period"
+    },
+    "overbought": {
+      "type": "number",
+      "default": 70,
+      "min": 50,
+      "max": 90,
+      "label": "Overbought Level"
+    },
+    "oversold": {
+      "type": "number",
+      "default": 30,
+      "min": 10,
+      "max": 50,
+      "label": "Oversold Level"
+    },
+    "color": {
+      "type": "color",
+      "default": "#9C27B0",
+      "label": "Color"
+    }
+  },
+  "style": {
+    "color": "#9C27B0",
+    "lineWidth": 2,
+    "lineStyle": "solid"
+  }
+}

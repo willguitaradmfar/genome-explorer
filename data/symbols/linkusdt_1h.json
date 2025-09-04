@@ -1,0 +1,10 @@
+{
+  "symbol": "LINKUSDT",
+  "name": "LINK",
+  "description": "LINK vs USDT",
+  "exchange": "Binance",
+  "type": "crypto",
+  "timeframe": "1h",
+  "baseAsset": "LINK",
+  "quoteAsset": "USDT"
+}

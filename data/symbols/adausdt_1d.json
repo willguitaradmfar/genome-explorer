@@ -1,0 +1,10 @@
+{
+  "symbol": "ADAUSDT",
+  "name": "ADA",
+  "description": "ADA vs USDT",
+  "exchange": "Binance",
+  "type": "crypto",
+  "timeframe": "1d",
+  "baseAsset": "ADA",
+  "quoteAsset": "USDT"
+}

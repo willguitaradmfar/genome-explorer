@@ -1,4 +1,4 @@
-import { DatabaseConfig, DatabaseError } from './types';
+import { DatabaseConfig, DatabaseError, QueryOptions, StoreConfig } from './types';
 
 export class IndexedDBManager {
   private dbName: string;
@@ -36,29 +36,65 @@ export class IndexedDBManager {
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
+        const oldVersion = event.oldVersion;
         
-        // Create object stores based on config
         Object.entries(this.config.stores).forEach(([storeName, storeConfig]) => {
           if (!db.objectStoreNames.contains(storeName)) {
-            const store = db.createObjectStore(storeName, { 
-              keyPath: storeConfig.keyPath 
-            });
-            
-            // Create indexes if specified
-            if (storeConfig.indexes) {
-              Object.entries(storeConfig.indexes).forEach(([indexName, indexKey]) => {
-                store.createIndex(indexName, indexKey, { unique: false });
-              });
-            }
-            
-            console.log(`Created object store: ${storeName}`);
+            this.createObjectStore(db, storeName, storeConfig);
+          } else if (oldVersion < this.version) {
+            this.updateObjectStore(db, storeName, storeConfig, event);
           }
         });
       };
     });
   }
 
-  async get<T>(storeName: string, key: string): Promise<T | null> {
+  private createObjectStore(db: IDBDatabase, storeName: string, config: StoreConfig): void {
+    const store = db.createObjectStore(storeName, {
+      keyPath: config.keyPath,
+      autoIncrement: config.autoIncrement || false
+    });
+
+    if (config.indexes) {
+      config.indexes.forEach(index => {
+        store.createIndex(index.name, index.keyPath, {
+          unique: index.unique || false,
+          multiEntry: index.multiEntry || false
+        });
+      });
+    }
+
+    console.log(`Created object store: ${storeName}`);
+  }
+
+  private updateObjectStore(_db: IDBDatabase, storeName: string, config: StoreConfig, event: IDBVersionChangeEvent): void {
+    const transaction = (event.target as IDBOpenDBRequest).transaction;
+    if (!transaction) return;
+
+    const store = transaction.objectStore(storeName);
+
+    if (config.indexes) {
+      const existingIndexes = Array.from(store.indexNames);
+      const newIndexes = config.indexes.map(idx => idx.name);
+
+      existingIndexes.forEach(indexName => {
+        if (!newIndexes.includes(indexName)) {
+          store.deleteIndex(indexName);
+        }
+      });
+
+      config.indexes.forEach(index => {
+        if (!store.indexNames.contains(index.name)) {
+          store.createIndex(index.name, index.keyPath, {
+            unique: index.unique || false,
+            multiEntry: index.multiEntry || false
+          });
+        }
+      });
+    }
+  }
+
+  async get<T>(storeName: string, key: IDBValidKey): Promise<T | null> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -80,7 +116,55 @@ export class IndexedDBManager {
     });
   }
 
-  async put<T>(storeName: string, data: T): Promise<void> {
+  async getAll<T>(storeName: string, options?: QueryOptions): Promise<T[]> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([storeName], 'readonly');
+      const store = transaction.objectStore(storeName);
+      
+      let source: IDBObjectStore | IDBIndex = store;
+      if (options?.index) {
+        source = store.index(options.index);
+      }
+
+      const results: T[] = [];
+      let count = 0;
+      const limit = options?.limit || Infinity;
+      const offset = options?.offset || 0;
+
+      const request = source.openCursor(options?.query || null, options?.direction);
+
+      request.onerror = () => {
+        const error: DatabaseError = new Error(`Failed to query ${storeName}`);
+        error.code = 'QUERY_ERROR';
+        reject(error);
+      };
+
+      request.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+        
+        if (cursor) {
+          if (count >= offset && results.length < limit) {
+            results.push(cursor.value);
+          }
+          count++;
+          
+          if (results.length < limit) {
+            cursor.continue();
+          } else {
+            resolve(results);
+          }
+        } else {
+          resolve(results);
+        }
+      };
+    });
+  }
+
+  async put<T>(storeName: string, data: T): Promise<IDBValidKey> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -97,12 +181,34 @@ export class IndexedDBManager {
       };
 
       request.onsuccess = () => {
-        resolve();
+        resolve(request.result);
       };
     });
   }
 
-  async delete(storeName: string, key: string): Promise<void> {
+  async add<T>(storeName: string, data: T): Promise<IDBValidKey> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([storeName], 'readwrite');
+      const store = transaction.objectStore(storeName);
+      const request = store.add(data);
+
+      request.onerror = () => {
+        const error: DatabaseError = new Error(`Failed to add item to ${storeName}`);
+        error.code = 'ADD_ERROR';
+        reject(error);
+      };
+
+      request.onsuccess = () => {
+        resolve(request.result);
+      };
+    });
+  }
+
+  async delete(storeName: string, key: IDBValidKey): Promise<void> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -120,28 +226,6 @@ export class IndexedDBManager {
 
       request.onsuccess = () => {
         resolve();
-      };
-    });
-  }
-
-  async getAll<T>(storeName: string): Promise<T[]> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
-
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readonly');
-      const store = transaction.objectStore(storeName);
-      const request = store.getAll();
-
-      request.onerror = () => {
-        const error: DatabaseError = new Error(`Failed to get all items from ${storeName}`);
-        error.code = 'GET_ALL_ERROR';
-        reject(error);
-      };
-
-      request.onsuccess = () => {
-        resolve(request.result || []);
       };
     });
   }
@@ -168,11 +252,116 @@ export class IndexedDBManager {
     });
   }
 
+  async count(storeName: string, query?: IDBKeyRange | IDBValidKey): Promise<number> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([storeName], 'readonly');
+      const store = transaction.objectStore(storeName);
+      const request = store.count(query);
+
+      request.onerror = () => {
+        const error: DatabaseError = new Error(`Failed to count items in ${storeName}`);
+        error.code = 'COUNT_ERROR';
+        reject(error);
+      };
+
+      request.onsuccess = () => {
+        resolve(request.result);
+      };
+    });
+  }
+
+  async bulkPut<T>(storeName: string, items: T[]): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([storeName], 'readwrite');
+      const store = transaction.objectStore(storeName);
+
+      let hasError = false;
+
+      transaction.onerror = () => {
+        hasError = true;
+        const error: DatabaseError = new Error(`Failed to bulk put items in ${storeName}`);
+        error.code = 'BULK_PUT_ERROR';
+        reject(error);
+      };
+
+      transaction.oncomplete = () => {
+        if (!hasError) {
+          resolve();
+        }
+      };
+
+      items.forEach(item => {
+        store.put(item);
+      });
+    });
+  }
+
+  async bulkDelete(storeName: string, keys: IDBValidKey[]): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([storeName], 'readwrite');
+      const store = transaction.objectStore(storeName);
+
+      let hasError = false;
+
+      transaction.onerror = () => {
+        hasError = true;
+        const error: DatabaseError = new Error(`Failed to bulk delete items from ${storeName}`);
+        error.code = 'BULK_DELETE_ERROR';
+        reject(error);
+      };
+
+      transaction.oncomplete = () => {
+        if (!hasError) {
+          resolve();
+        }
+      };
+
+      keys.forEach(key => {
+        store.delete(key);
+      });
+    });
+  }
+
+  getDatabase(): IDBDatabase | null {
+    return this.db;
+  }
+
   close(): void {
     if (this.db) {
       this.db.close();
       this.db = null;
       console.log(`Database ${this.dbName} closed`);
     }
+  }
+
+  async deleteDatabase(): Promise<void> {
+    this.close();
+    
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(this.dbName);
+
+      request.onerror = () => {
+        const error: DatabaseError = new Error(`Failed to delete database ${this.dbName}`);
+        error.code = 'DELETE_DATABASE_ERROR';
+        reject(error);
+      };
+
+      request.onsuccess = () => {
+        console.log(`Database ${this.dbName} deleted`);
+        resolve();
+      };
+    });
   }
 }

@@ -1,0 +1,10 @@
+{
+  "symbol": "BNBUSDT",
+  "name": "BNB",
+  "description": "BNB vs USDT",
+  "exchange": "Binance",
+  "type": "crypto",
+  "timeframe": "4h",
+  "baseAsset": "BNB",
+  "quoteAsset": "USDT"
+}

@@ -1,0 +1,10 @@
+{
+  "symbol": "MATICUSDT",
+  "name": "MATIC",
+  "description": "MATIC vs USDT",
+  "exchange": "Binance",
+  "type": "crypto",
+  "timeframe": "1d",
+  "baseAsset": "MATIC",
+  "quoteAsset": "USDT"
+}

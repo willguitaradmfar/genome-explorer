@@ -1,0 +1,10 @@
+{
+  "symbol": "SOLUSDT",
+  "name": "SOL",
+  "description": "SOL vs USDT",
+  "exchange": "Binance",
+  "type": "crypto",
+  "timeframe": "1h",
+  "baseAsset": "SOL",
+  "quoteAsset": "USDT"
+}

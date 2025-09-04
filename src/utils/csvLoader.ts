@@ -1,5 +1,6 @@
 import { OHLC, VolumeData } from '../types/chart.types';
 import { DataFolderManager } from './dataFolderManager';
+import { SymbolDataRepository } from '../repositories/symbol-data/SymbolDataRepository';
 
 export interface CSVSymbol {
   filename: string;
@@ -35,9 +36,11 @@ export interface CSVRow {
 export class CSVLoader {
   private static instance: CSVLoader;
   private availableSymbols: CSVSymbol[] = [];
-  private symbolDataCache: Map<string, { data: OHLC[], volumeData: VolumeData[] }> = new Map();
+  private symbolDataRepository: SymbolDataRepository;
 
-  private constructor() {}
+  private constructor() {
+    this.symbolDataRepository = SymbolDataRepository.getInstance();
+  }
 
   static getInstance(): CSVLoader {
     if (!CSVLoader.instance) {
@@ -246,136 +249,48 @@ export class CSVLoader {
   }
 
   async loadSymbolData(symbol: CSVSymbol): Promise<{ data: OHLC[], volumeData: VolumeData[] }> {
-    // Load full data into cache if not already loaded
-    if (!this.symbolDataCache.has(symbol.filename)) {
-      const fullData = await this.loadFullSymbolData(symbol);
-      this.symbolDataCache.set(symbol.filename, fullData);
-    }
+    console.log(`[CSVLoader] Loading symbol data for: ${symbol.displayName}`);
     
-    const cachedData = this.symbolDataCache.get(symbol.filename)!;
-    
-    console.log(`Loaded ${cachedData.data.length} candles for ${symbol.displayName}`);
-    
-    return {
-      data: cachedData.data,
-      volumeData: cachedData.volumeData
-    };
-  }
-
-  getFullData(symbol: CSVSymbol): { data: OHLC[], volumeData: VolumeData[] } | null {
-    return this.symbolDataCache.get(symbol.filename) || null;
-  }
-
-  private async loadFullSymbolData(symbol: CSVSymbol): Promise<{ data: OHLC[], volumeData: VolumeData[] }> {
     try {
-      if (window.require) {
-        const fs = window.require('fs');
-        const path = window.require('path');
-        
-        const dataFolderManager = DataFolderManager.getInstance();
-        const symbolsPath = dataFolderManager.getSymbolsPath();
-        
-        if (!symbolsPath) {
-          console.warn('Data folder not configured');
-          return this.generateSampleData(symbol.symbol);
-        }
-        
-        const filePath = path.join(symbolsPath, symbol.filename);
-        const csvContent = fs.readFileSync(filePath, 'utf8');
-        
-        console.log(`Loading full data for ${symbol.displayName}...`);
-        return this.parseCSVContent(csvContent);
-      } else {
-        // Fallback: try to fetch from public folder or generate sample data
-        console.warn('File system not available, generating sample data for', symbol.symbol);
-        return this.generateSampleData(symbol.symbol);
-      }
+      // Always ensure repository is initialized before use
+      await this.ensureRepositoryInitialized();
+      
+      // Use repository to load data (from IndexedDB or file)
+      const result = await this.symbolDataRepository.getSymbolData(symbol);
+      console.log(`[CSVLoader] Successfully loaded ${result.data.length} data points for ${symbol.displayName}`);
+      return result;
     } catch (error) {
-      console.error('Error loading full symbol data:', error);
-      return this.generateSampleData(symbol.symbol);
+      console.error(`[CSVLoader] Error loading symbol data:`, error);
+      throw error;
     }
   }
 
-  private parseCSVContent(csvContent: string): { data: OHLC[], volumeData: VolumeData[] } {
-    const lines = csvContent.trim().split('\n');
-    const data: OHLC[] = [];
-    const volumeData: VolumeData[] = [];
-
-    for (const line of lines) {
-      if (!line.trim()) continue;
-
-      const columns = line.split(',');
-      if (columns.length < 12) continue;
-
-      try {
-        const timestamp = parseInt(columns[0]);
-        const open = parseFloat(columns[1].replace(/"/g, ''));
-        const high = parseFloat(columns[2].replace(/"/g, ''));
-        const low = parseFloat(columns[3].replace(/"/g, ''));
-        const close = parseFloat(columns[4].replace(/"/g, ''));
-        const volume = parseFloat(columns[5].replace(/"/g, ''));
-
-        // Convert timestamp from milliseconds to seconds
-        const time = Math.floor(timestamp / 1000);
-
-        data.push({
-          time,
-          open,
-          high,
-          low,
-          close,
-        });
-
-        volumeData.push({
-          time,
-          value: volume,
-          color: close >= open ? '#26a69a' : '#ef5350',
-        });
-      } catch (error) {
-        console.warn('Error parsing CSV line:', line, error);
-      }
+  private async ensureRepositoryInitialized(): Promise<void> {
+    if (!this.symbolDataRepository) {
+      console.log(`[CSVLoader] Creating new SymbolDataRepository instance`);
+      this.symbolDataRepository = SymbolDataRepository.getInstance();
     }
-
-    console.log(`Loaded ${data.length} candles for symbol`);
-    return { data, volumeData };
+    
+    // Always try to initialize - BaseRepository handles the check internally
+    try {
+      await this.symbolDataRepository.initialize();
+      console.log(`[CSVLoader] SymbolDataRepository ready`);
+    } catch (error) {
+      console.error(`[CSVLoader] Failed to initialize SymbolDataRepository:`, error);
+      throw error;
+    }
   }
 
-  private generateSampleData(symbol: string): { data: OHLC[], volumeData: VolumeData[] } {
-    // Generate sample data based on symbol type
-    let basePrice = 50000;
-    if (symbol.includes('ETH')) basePrice = 3000;
-    if (symbol.includes('SOL')) basePrice = 150;
-
-    const data: OHLC[] = [];
-    const volumeData: VolumeData[] = [];
-    let time = new Date();
-    time.setHours(time.getHours() - 1000);
-
-    for (let i = 0; i < 1000; i++) {
-      const variance = (Math.random() - 0.5) * (basePrice * 0.02);
-      const open = basePrice + variance;
-      const close = open + (Math.random() - 0.5) * (basePrice * 0.02);
-      const high = Math.max(open, close) + Math.random() * (basePrice * 0.01);
-      const low = Math.min(open, close) - Math.random() * (basePrice * 0.01);
-
-      data.push({
-        time: Math.floor(time.getTime() / 1000),
-        open,
-        high,
-        low,
-        close,
-      });
-
-      volumeData.push({
-        time: Math.floor(time.getTime() / 1000),
-        value: Math.random() * 1000000,
-        color: close >= open ? '#26a69a' : '#ef5350',
-      });
-
-      basePrice = close;
-      time = new Date(time.getTime() + 60 * 60 * 1000);
+  async getFullData(symbol: CSVSymbol): Promise<{ data: OHLC[], volumeData: VolumeData[] } | null> {
+    try {
+      await this.ensureRepositoryInitialized();
+      return await this.symbolDataRepository.getSymbolData(symbol);
+    } catch (error) {
+      console.error('Error getting full data:', error);
+      return null;
     }
-
-    return { data, volumeData };
   }
+
+
+
 }

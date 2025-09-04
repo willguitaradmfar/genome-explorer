@@ -1,0 +1,10 @@
+{
+  "symbol": "LTCUSDT",
+  "name": "LTC",
+  "description": "LTC vs USDT",
+  "exchange": "Binance",
+  "type": "crypto",
+  "timeframe": "1d",
+  "baseAsset": "LTC",
+  "quoteAsset": "USDT"
+}

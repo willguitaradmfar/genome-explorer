@@ -1,18 +1,36 @@
-import { IndexedDBManager } from './IndexedDBManager';
-import { DatabaseConfig } from './types';
-import { UserPreferences } from '../repositories/user-preferences/UserPreferencesRepository';
-import { CSVSymbol } from '../utils/csvLoader';
+import { DatabaseConfig } from '../../database/types';
+import { BaseRepository } from '../BaseRepository';
+import { CSVSymbol } from '../../utils/csvLoader';
 
-export class PreferencesManager {
-  private static instance: PreferencesManager;
-  private dbManager: IndexedDBManager;
+export interface UserPreferences {
+  id: string;
+  lastSelectedSymbol?: CSVSymbol;
+  theme: 'dark' | 'light';
+  showVolume: boolean;
+  showGrid: boolean;
+  autoSave: boolean;
+  lastUpdated: Date;
+}
+
+export class UserPreferencesRepository extends BaseRepository<UserPreferences> {
+  private static instance: UserPreferencesRepository;
   private readonly USER_PREFS_KEY = 'user_preferences_v1';
-  private isInitialized = false;
 
   private constructor() {
-    const config: DatabaseConfig = {
+    super('userPreferences');
+  }
+
+  static getInstance(): UserPreferencesRepository {
+    if (!UserPreferencesRepository.instance) {
+      UserPreferencesRepository.instance = new UserPreferencesRepository();
+    }
+    return UserPreferencesRepository.instance;
+  }
+
+  protected getDatabaseConfig(): DatabaseConfig {
+    return {
       name: 'TradingSystemDB',
-      version: 1,
+      version: 6, // Versão atualizada para incluir nova tabela indicatorConfigs
       stores: {
         userPreferences: {
           keyPath: 'id',
@@ -20,43 +38,44 @@ export class PreferencesManager {
             { name: 'lastUpdated', keyPath: 'lastUpdated' },
             { name: 'theme', keyPath: 'theme' }
           ]
+        },
+        symbolMetadata: {
+          keyPath: 'id',
+          indexes: [
+            { name: 'filename', keyPath: 'filename' },
+            { name: 'symbol', keyPath: 'symbol.symbol' },
+            { name: 'lastUpdated', keyPath: 'lastUpdated' }
+          ]
+        },
+        symbolData: {
+          keyPath: 'id',
+          indexes: [
+            { name: 'symbolId', keyPath: 'symbolId' },
+            { name: 'time', keyPath: 'time' },
+            { name: 'close', keyPath: 'close' },
+            { name: 'volume', keyPath: 'volume' }
+          ]
+        },
+        indicatorConfigs: {
+          keyPath: 'id',
+          indexes: [
+            { name: 'symbolId', keyPath: 'symbolId' },
+            { name: 'indicatorId', keyPath: 'indicatorId' },
+            { name: 'symbolIndicator', keyPath: ['symbolId', 'indicatorId'] },
+            { name: 'isEnabled', keyPath: 'isEnabled' },
+            { name: 'pane', keyPath: 'pane' },
+            { name: 'createdAt', keyPath: 'createdAt' }
+          ]
         }
       }
     };
-
-    this.dbManager = new IndexedDBManager(config);
-  }
-
-  static getInstance(): PreferencesManager {
-    if (!PreferencesManager.instance) {
-      PreferencesManager.instance = new PreferencesManager();
-    }
-    return PreferencesManager.instance;
-  }
-
-  async initialize(): Promise<void> {
-    if (this.isInitialized) return;
-
-    try {
-      await this.dbManager.initialize();
-      this.isInitialized = true;
-      console.log('PreferencesManager initialized successfully');
-    } catch (error) {
-      console.error('Failed to initialize PreferencesManager:', error);
-      throw error;
-    }
   }
 
   async getUserPreferences(): Promise<UserPreferences> {
-    if (!this.isInitialized) {
-      throw new Error('PreferencesManager not initialized');
-    }
-
     try {
-      const prefs = await this.dbManager.get<UserPreferences>('userPreferences', this.USER_PREFS_KEY);
+      const prefs = await this.get(this.USER_PREFS_KEY);
       
       if (!prefs) {
-        // Return default preferences if none exist
         return this.getDefaultPreferences();
       }
 
@@ -68,15 +87,9 @@ export class PreferencesManager {
   }
 
   async saveUserPreferences(preferences: Partial<UserPreferences>): Promise<void> {
-    if (!this.isInitialized) {
-      throw new Error('PreferencesManager not initialized');
-    }
-
     try {
-      // Get current preferences or defaults
       const currentPrefs = await this.getUserPreferences();
       
-      // Merge with new preferences
       const updatedPrefs: UserPreferences = {
         ...currentPrefs,
         ...preferences,
@@ -84,7 +97,7 @@ export class PreferencesManager {
         lastUpdated: new Date()
       };
 
-      await this.dbManager.put('userPreferences', updatedPrefs);
+      await this.save(updatedPrefs);
       console.log('User preferences saved successfully');
     } catch (error) {
       console.error('Failed to save user preferences:', error);
@@ -101,8 +114,8 @@ export class PreferencesManager {
     return prefs.lastSelectedSymbol || null;
   }
 
-  // Removed activeIndicators methods - now handled by IndicatorConfigRepository
-  // This keeps PreferencesManager focused on UI/app preferences only
+  // Removed activeIndicators management - now handled by IndicatorConfigRepository
+  // This keeps UserPreferences focused on UI/app preferences only
 
   async saveTheme(theme: 'dark' | 'light'): Promise<void> {
     await this.saveUserPreferences({ theme });
@@ -126,12 +139,8 @@ export class PreferencesManager {
   }
 
   async clearAllPreferences(): Promise<void> {
-    if (!this.isInitialized) {
-      throw new Error('PreferencesManager not initialized');
-    }
-
     try {
-      await this.dbManager.clear('userPreferences');
+      await this.clear();
       console.log('All user preferences cleared');
     } catch (error) {
       console.error('Failed to clear user preferences:', error);
@@ -150,23 +159,16 @@ export class PreferencesManager {
     };
   }
 
-  close(): void {
-    this.dbManager.close();
-    this.isInitialized = false;
-  }
-
-  // Utility method for debugging
   async exportPreferences(): Promise<UserPreferences> {
     const prefs = await this.getUserPreferences();
     console.log('Current user preferences:', JSON.stringify(prefs, null, 2));
     return prefs;
   }
 
-  // Utility method for importing preferences
   async importPreferences(preferences: UserPreferences): Promise<void> {
     preferences.id = this.USER_PREFS_KEY;
     preferences.lastUpdated = new Date();
-    await this.dbManager.put('userPreferences', preferences);
+    await this.save(preferences);
     console.log('User preferences imported successfully');
   }
 }

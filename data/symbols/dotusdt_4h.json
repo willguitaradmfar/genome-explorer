@@ -1,0 +1,10 @@
+{
+  "symbol": "DOTUSDT",
+  "name": "DOT",
+  "description": "DOT vs USDT",
+  "exchange": "Binance",
+  "type": "crypto",
+  "timeframe": "4h",
+  "baseAsset": "DOT",
+  "quoteAsset": "USDT"
+}

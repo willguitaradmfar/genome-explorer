@@ -1,0 +1,10 @@
+{
+  "symbol": "BTCUSDT",
+  "name": "BTC",
+  "description": "BTC vs USDT",
+  "exchange": "Binance",
+  "type": "crypto",
+  "timeframe": "1h",
+  "baseAsset": "BTC",
+  "quoteAsset": "USDT"
+}

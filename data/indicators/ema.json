@@ -1,0 +1,32 @@
+{
+  "id": "ema",
+  "name": "EMA",
+  "description": "Exponential Moving Average",
+  "type": "overlay",
+  "pane": "main",
+  "parameters": {
+    "period": {
+      "type": "number",
+      "default": 20,
+      "min": 2,
+      "max": 200,
+      "label": "Period"
+    },
+    "source": {
+      "type": "select",
+      "default": "close",
+      "options": ["close", "open", "high", "low", "hl2", "hlc3", "ohlc4"],
+      "label": "Source"
+    },
+    "color": {
+      "type": "color",
+      "default": "#4CAF50",
+      "label": "Color"
+    }
+  },
+  "style": {
+    "color": "#4CAF50",
+    "lineWidth": 2,
+    "lineStyle": "solid"
+  }
+}

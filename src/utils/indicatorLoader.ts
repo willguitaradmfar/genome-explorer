@@ -76,6 +76,10 @@ export class IndicatorLoader {
     return this.availableIndicators;
   }
 
+  async loadAvailableIndicators(): Promise<Indicator[]> {
+    return await this.initializeIndicators();
+  }
+
   getAllIndicators(): Indicator[] {
     // Return all indicators, no filtering by symbol
     return this.availableIndicators;
