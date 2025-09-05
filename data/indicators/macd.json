@@ -38,5 +38,38 @@
     "histogramColor": "#4CAF50",
     "lineWidth": 2,
     "lineStyle": "solid"
+  },
+  "outputs": {
+    "macd": {
+      "name": "MACD",
+      "description": "MACD line (difference between fast and slow EMA)",
+      "type": "line",
+      "defaultColor": "#00BCD4",
+      "displayName": "MACD({fastPeriod},{slowPeriod})"
+    },
+    "signal": {
+      "name": "Signal",
+      "description": "Signal line (EMA of MACD line)",
+      "type": "line",
+      "defaultColor": "#FF5722",
+      "displayName": "Signal({signalPeriod})"
+    },
+    "histogram": {
+      "name": "Histogram",
+      "description": "MACD Histogram (difference between MACD and Signal)",
+      "type": "histogram",
+      "defaultColor": "#4CAF50",
+      "displayName": "Histogram",
+      "colorRules": [
+        {
+          "condition": "value > 0",
+          "color": "#4CAF50"
+        },
+        {
+          "condition": "value < 0",
+          "color": "#F44336"
+        }
+      ]
+    }
   }
 }

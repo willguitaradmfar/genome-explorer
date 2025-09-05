@@ -197,7 +197,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-start justify-center pt-24">
-      <div className="bg-white/20 dark:bg-gray-900/25 backdrop-blur-xl border border-white/10 dark:border-gray-600/20 rounded-lg shadow-2xl w-full max-w-4xl mx-4 overflow-hidden">
+      <div className="bg-white/20 dark:bg-gray-900/25 backdrop-blur-xl border border-white/20 dark:border-gray-600 rounded-lg shadow-2xl w-full max-w-4xl mx-4 overflow-hidden">
         {/* Search Input */}
         <div className="flex items-center px-4 py-3 border-b border-white/10 dark:border-gray-600/20">
           <svg className="w-5 h-5 text-white/70 dark:text-white/70 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

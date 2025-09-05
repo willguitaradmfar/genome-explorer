@@ -28,5 +28,14 @@
     "color": "#4CAF50",
     "lineWidth": 2,
     "lineStyle": "solid"
+  },
+  "outputs": {
+    "ema": {
+      "name": "EMA",
+      "description": "Exponential Moving Average line",
+      "type": "line",
+      "defaultColor": "#4CAF50",
+      "displayName": "EMA({period})"
+    }
   }
 }

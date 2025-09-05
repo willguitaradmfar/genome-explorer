@@ -16,16 +16,25 @@
   background: #2a2e39;
   border-radius: 12px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow-y: auto;
+  width: 98%;
+  max-width: 1200px;
+  max-height: 90vh;
+  overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
 }
 
 .parameter-dialog-header {
   padding: 24px 24px 16px 24px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.parameter-dialog-header-content {
+  flex: 1;
 }
 
 .parameter-dialog-title {
@@ -40,6 +49,30 @@
   font-size: 14px;
   color: #a0a8b8;
   line-height: 1.4;
+}
+
+.parameter-dialog-close {
+  background: none;
+  border: none;
+  color: #a0a8b8;
+  font-size: 24px;
+  font-weight: 300;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  margin-left: 16px;
+  line-height: 1;
+}
+
+.parameter-dialog-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 .parameter-dialog-form {
@@ -182,20 +215,285 @@
   box-shadow: 0 2px 8px rgba(41, 98, 255, 0.3);
 }
 
-/* Scrollbar styling */
-.parameter-dialog::-webkit-scrollbar {
+/* Tab Navigation */
+.parameter-dialog-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.parameter-dialog-tab {
+  flex: 1;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  color: #a0a8b8;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.parameter-dialog-tab:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.parameter-dialog-tab.active {
+  color: #2962ff;
+  background: rgba(41, 98, 255, 0.1);
+}
+
+.parameter-dialog-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #2962ff;
+}
+
+/* Tab Content */
+.parameter-dialog-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Technical Info Styles */
+.technical-info-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.technical-info {
+  padding: 24px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.technical-section {
+  margin-bottom: 24px;
+}
+
+.technical-section:last-child {
+  margin-bottom: 0;
+}
+
+.technical-section-title {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 6px;
+}
+
+.technical-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.technical-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+}
+
+.technical-info-label {
+  font-size: 13px;
+  color: #a0a8b8;
+  font-weight: 500;
+}
+
+.technical-info-value {
+  font-size: 13px;
+  color: #ffffff;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* JSON Viewer Styles */
+.json-viewer {
+  background: #1e222d;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 16px;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.json-content {
+  margin-left: 16px;
+}
+
+.json-item {
+  white-space: nowrap;
+}
+
+.json-key {
+  color: #79c0ff;
+}
+
+.json-string {
+  color: #a5d6ff;
+}
+
+.json-number {
+  color: #79c0ff;
+}
+
+.json-boolean {
+  color: #f69d50;
+}
+
+.json-null {
+  color: #ffa198;
+}
+
+.json-object,
+.json-array {
+  color: #ffffff;
+}
+
+/* Technical Tables */
+.technical-table {
+  overflow-x: auto;
+  margin-bottom: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: #1e222d;
+}
+
+.technical-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.technical-table th {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  font-weight: 600;
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+}
+
+.technical-table td {
+  padding: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  vertical-align: top;
+}
+
+.technical-table tr:last-child td {
+  border-bottom: none;
+}
+
+.technical-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.param-key,
+.output-key {
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+  font-weight: 600;
+  color: #79c0ff;
+}
+
+.param-type,
+.output-type {
+  color: #f69d50;
+  font-weight: 500;
+}
+
+.param-value {
+  color: #a5d6ff;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+}
+
+.param-label,
+.output-name,
+.output-display,
+.output-description {
+  color: #ffffff;
+}
+
+.output-range {
+  color: #a5d6ff;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+}
+
+.color-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.color-preview span {
+  color: #a5d6ff;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+  font-size: 12px;
+}
+
+.table-empty {
+  padding: 24px;
+  text-align: center;
+  color: #a0a8b8;
+  font-style: italic;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+}
+
+/* Scrollbar styling for content areas */
+.parameter-dialog-content::-webkit-scrollbar,
+.technical-info::-webkit-scrollbar,
+.json-viewer::-webkit-scrollbar,
+.technical-table::-webkit-scrollbar {
   width: 6px;
 }
 
-.parameter-dialog::-webkit-scrollbar-track {
+.parameter-dialog-content::-webkit-scrollbar-track,
+.technical-info::-webkit-scrollbar-track,
+.json-viewer::-webkit-scrollbar-track,
+.technical-table::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.parameter-dialog::-webkit-scrollbar-thumb {
+.parameter-dialog-content::-webkit-scrollbar-thumb,
+.technical-info::-webkit-scrollbar-thumb,
+.json-viewer::-webkit-scrollbar-thumb,
+.technical-table::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
 }
 
-.parameter-dialog::-webkit-scrollbar-thumb:hover {
+.parameter-dialog-content::-webkit-scrollbar-thumb:hover,
+.technical-info::-webkit-scrollbar-thumb:hover,
+.json-viewer::-webkit-scrollbar-thumb:hover,
+.technical-table::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }

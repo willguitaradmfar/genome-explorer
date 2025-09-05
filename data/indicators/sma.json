@@ -28,5 +28,14 @@
     "color": "#2196F3",
     "lineWidth": 2,
     "lineStyle": "solid"
+  },
+  "outputs": {
+    "sma": {
+      "name": "SMA",
+      "description": "Simple Moving Average line",
+      "type": "line",
+      "defaultColor": "#2196F3",
+      "displayName": "SMA({period})"
+    }
   }
 }

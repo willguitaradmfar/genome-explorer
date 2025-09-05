@@ -36,5 +36,34 @@
     "color": "#9C27B0",
     "lineWidth": 2,
     "lineStyle": "solid"
+  },
+  "outputs": {
+    "rsi": {
+      "name": "RSI",
+      "description": "Relative Strength Index oscillator",
+      "type": "line",
+      "defaultColor": "#9C27B0",
+      "displayName": "RSI({period})",
+      "range": {
+        "min": 0,
+        "max": 100
+      }
+    },
+    "overbought": {
+      "name": "Overbought Level",
+      "description": "Overbought reference line",
+      "type": "reference_line",
+      "defaultColor": "#FF5722",
+      "displayName": "Overbought ({overbought})",
+      "value": "{overbought}"
+    },
+    "oversold": {
+      "name": "Oversold Level",
+      "description": "Oversold reference line",
+      "type": "reference_line",
+      "defaultColor": "#FF5722",
+      "displayName": "Oversold ({oversold})",
+      "value": "{oversold}"
+    }
   }
 }
