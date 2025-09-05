@@ -1,4 +1,7 @@
-name: Build & Release
+name: Build & Release (per-commit)
+
+permissions:
+  contents: write
 
 on:
   push:
@@ -9,7 +12,6 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-    
     strategy:
       fail-fast: false
       matrix:
@@ -17,7 +19,7 @@ jobs:
           - os: windows-latest
             platform: win32
             arch: x64
-          - os: macos-latest
+          - os: macos-13
             platform: darwin
             arch: x64
           - os: macos-latest
@@ -26,83 +28,73 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             arch: x64
-            
+
     steps:
-    - uses: actions/checkout@v4
-      
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 18
-        cache: npm
-        
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Build application
-      run: npm run build
-      
-    - name: Build Electron
-      run: npm run dist
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.platform }}-${{ matrix.arch }}
-        path: |
-          dist/*.exe
-          dist/*.dmg
-          dist/*.zip
-          dist/*.AppImage
-          dist/*.deb
-          dist/*.rpm
-        retention-days: 1
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Compute SHORT_SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Build Electron
+        run: npm run dist
+        env:
+          ELECTRON_BUILDER_DISABLE_PUBLISHING: true
+
+      - name: Rename artifacts with commit hash
+        shell: bash
+        run: |
+          shopt -s nullglob
+          for f in dist/*.{exe,dmg,zip,AppImage,deb,rpm}; do
+            [ -e "$f" ] || continue
+            ext="${f##*.}"
+            base="$(basename "$f" ."$ext")"
+            mv "$f" "dist/${base}-${SHORT_SHA}.${ext}"
+          done
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-${{ matrix.arch }}-${{ env.SHORT_SHA }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+          retention-days: 3
 
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    
     steps:
-    - uses: actions/checkout@v4
-      
-    - name: Download artifacts
-      uses: actions/download-artifact@v4
-      with:
-        merge-multiple: true
-        path: ./artifacts
-        
-    - name: Display structure
-      run: ls -la ./artifacts/
-      
-    - name: Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: ./artifacts/**/*
-        generate_release_notes: true
-        name: Genome Explorer ${{ github.ref_name }}
-        body: |
-          ## 🚀 Genome Explorer Desktop Application
-          
-          ### Download for your platform:
-          
-          **Windows:**
-          - `*.exe` files - Choose Setup (installer) or Portable version
-          
-          **macOS:**
-          - `*.dmg` - Disk image (recommended)
-          - `*.zip` - Archive version
-          
-          **Linux:**
-          - `*.AppImage` - Portable application (recommended)
-          - `*.deb` - Debian/Ubuntu package
-          
-          ### Features:
-          - 📊 Real-time trading charts
-          - 📈 Technical indicators (RSI, SMA, EMA, MACD)
-          - ⌨️ Command palette (Ctrl+P for symbols, Ctrl+I for indicators)
-          - 💾 Data persistence with IndexedDB
-          - 🎨 Modern dark theme with glassmorphism effects
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: ./artifacts
+
+      - name: Show files
+        run: ls -la ./artifacts || true
+
+      - name: Create GitHub Release (per commit)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.sha }}
+          name: "Genome Explorer – ${{ github.sha }}"
+          body: |
+            Build automático da branch main.
+            Commit: ${{ github.sha }}
+          files: ./artifacts/**/*
+          generate_release_notes: false
