@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback, useState } from 'react';
 import {
   createChart,
   IChartApi,
@@ -9,6 +9,7 @@ import {
 import { OHLC, ChartSettings, VolumeData } from '../../types/chart.types';
 import { DynamicIndicatorCalculator } from '../../utils/dynamicIndicatorCalculator';
 import { ActiveIndicator } from '../../types/indicator.types';
+import SubChartTooltip from '../SubChartTooltip/SubChartTooltip';
 
 interface SubChartProps {
   data: OHLC[];
@@ -38,43 +39,20 @@ const SubChart: React.FC<SubChartProps> = ({
   const indicatorSeriesMap = useRef<Map<string, { series: any, data: any[], color: string, name: string, baseIndicator: ActiveIndicator }>>(new Map());
   const chartInitialized = useRef<boolean>(false);
   const syncingRef = useRef<boolean>(false);
+  
+  // State for tooltip
+  const [tooltip, setTooltip] = useState<{
+    position: { x: number; y: number };
+    isVisible: boolean;
+    indicatorValues: { [indicatorId: string]: { time: number; value: number; color: string; name: string }[] };
+    time?: number;
+  }>({
+    position: { x: 0, y: 0 },
+    isVisible: false,
+    indicatorValues: {},
+    time: undefined
+  });
 
-  const updateIndicatorTooltipData = (time: number) => {
-    if (!onIndicatorData) return;
-    
-    const tooltipData: { [indicatorId: string]: { time: number; value: number; color: string; name: string }[] } = {};
-    const indicatorGroups = new Map<string, { time: number; value: number; color: string; name: string }[]>();
-    
-    indicatorSeriesMap.current.forEach(({ data, color, name, baseIndicator }) => {
-      if (data) {
-        const dataPoint = data.find((point: any) => point.time === time);
-        if (dataPoint && dataPoint.value !== undefined) {
-          const baseId = baseIndicator.id;
-          
-          if (!indicatorGroups.has(baseId)) {
-            indicatorGroups.set(baseId, []);
-          }
-          
-          indicatorGroups.get(baseId)!.push({
-            time: dataPoint.time,
-            value: dataPoint.value,
-            color: color,
-            name: name
-          });
-        }
-      }
-    });
-    
-    indicatorGroups.forEach((seriesData, indicatorId) => {
-      if (seriesData.length > 0) {
-        tooltipData[indicatorId] = seriesData;
-      }
-    });
-    
-    if (Object.keys(tooltipData).length > 0) {
-      onIndicatorData(tooltipData);
-    }
-  };
 
   const createChartOptions = () => ({
     width: 800,
@@ -246,15 +224,64 @@ const SubChart: React.FC<SubChartProps> = ({
 
     // No time scale sync needed
 
-    // Only add crosshair handler if tooltip callback is provided
-    if (onIndicatorData) {
-      const crosshairHandler = (param: any) => {
-        if (param && param.time !== undefined) {
-          updateIndicatorTooltipData(param.time);
+    // Add crosshair handler for tooltip and indicator data
+    const crosshairHandler = (param: any) => {
+      if (param && param.time !== undefined) {
+        // Update tooltip data
+        const tooltipData: { [indicatorId: string]: { time: number; value: number; color: string; name: string }[] } = {};
+        const indicatorGroups = new Map<string, { time: number; value: number; color: string; name: string }[]>();
+        
+        indicatorSeriesMap.current.forEach(({ data, color, name, baseIndicator }) => {
+          if (data) {
+            const dataPoint = data.find((point: any) => point.time === param.time);
+            if (dataPoint && dataPoint.value !== undefined && dataPoint.value !== null) {
+              const baseId = baseIndicator.id;
+              
+              if (!indicatorGroups.has(baseId)) {
+                indicatorGroups.set(baseId, []);
+              }
+              
+              indicatorGroups.get(baseId)!.push({
+                time: dataPoint.time,
+                value: dataPoint.value,
+                color: color,
+                name: name
+              });
+            }
+          }
+        });
+        
+        indicatorGroups.forEach((seriesData, indicatorId) => {
+          if (seriesData.length > 0) {
+            tooltipData[indicatorId] = seriesData;
+          }
+        });
+
+        // Update local tooltip
+        if (param.point && chartContainerRef.current) {
+          const rect = chartContainerRef.current.getBoundingClientRect();
+          setTooltip({
+            position: { 
+              x: rect.left + param.point.x, 
+              y: rect.top + param.point.y 
+            },
+            isVisible: Object.keys(tooltipData).length > 0,
+            indicatorValues: tooltipData,
+            time: param.time
+          });
         }
-      };
-      chart.subscribeCrosshairMove(crosshairHandler);
-    }
+
+        // Call original callback if provided
+        if (onIndicatorData && Object.keys(tooltipData).length > 0) {
+          onIndicatorData(tooltipData);
+        }
+      } else {
+        // Hide tooltip when no crosshair
+        setTooltip(prev => ({ ...prev, isVisible: false }));
+      }
+    };
+    
+    chart.subscribeCrosshairMove(crosshairHandler);
 
     chartInitialized.current = true;
     
@@ -320,9 +347,19 @@ const SubChart: React.FC<SubChartProps> = ({
   }
 
   return (
-    <div style={{ width: '100%', height: '120px' }}>
-      <div ref={chartContainerRef} style={{ width: '100%', height: '100%' }} />
-    </div>
+    <>
+      <div style={{ width: '100%', height: '120px' }}>
+        <div ref={chartContainerRef} style={{ width: '100%', height: '100%' }} />
+      </div>
+      
+      {/* SubChart Tooltip */}
+      <SubChartTooltip
+        position={tooltip.position}
+        isVisible={tooltip.isVisible}
+        indicatorValues={tooltip.indicatorValues}
+        time={tooltip.time}
+      />
+    </>
   );
 };
 
