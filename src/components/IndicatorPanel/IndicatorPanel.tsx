@@ -16,7 +16,7 @@ const IndicatorPanel: React.FC<IndicatorPanelProps> = ({
 
   return (
     <div className="absolute top-10 left-4 z-20">
-      <div className="bg-white/20 dark:bg-gray-900/25 backdrop-blur-xl border border-white/15 rounded-lg shadow-2xl w-80 overflow-hidden">
+      <div className="bg-black/10 backdrop-blur-xl border border-white/15 rounded-lg shadow-2xl w-80 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-white/10 dark:border-gray-600/20">
           <div className="flex items-center gap-2">
