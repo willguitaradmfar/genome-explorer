@@ -3,7 +3,7 @@
   "name": "RSI",
   "description": "Relative Strength Index",
   "type": "oscillator",
-  "pane": "main",
+  "pane": "sub",
   "parameters": {
     "period": {
       "type": "number",

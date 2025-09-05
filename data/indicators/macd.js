@@ -66,31 +66,70 @@ function calculateMACD(data, parameters) {
   
   const fastEMA = calculateEMA(data, fastPeriod);
   const slowEMA = calculateEMA(data, slowPeriod);
+  
+  // Create lookup maps
+  const fastEMAMap = new Map();
+  const slowEMAMap = new Map();
+  fastEMA.forEach(point => fastEMAMap.set(point.time, point.value));
+  slowEMA.forEach(point => slowEMAMap.set(point.time, point.value));
+  
+  // Calculate MACD line for ALL data points (including warmup with null values)
   const macdLine = [];
-  
-  // Calculate MACD line
-  const startIndex = Math.max(fastEMA.length, slowEMA.length) - Math.min(fastEMA.length, slowEMA.length);
-  
-  for (let i = startIndex; i < Math.min(fastEMA.length, slowEMA.length); i++) {
-    macdLine.push({
-      time: fastEMA[i].time,
-      value: fastEMA[i].value - slowEMA[i - startIndex].value
-    });
-  }
-  
-  // Calculate signal line (EMA of MACD)
-  const signalLine = calculateEMAFromData(macdLine, signalPeriod);
-  
-  // Calculate histogram
-  const histogram = [];
-  for (let i = 0; i < Math.min(macdLine.length, signalLine.length); i++) {
-    if (macdLine[i + (macdLine.length - signalLine.length)]) {
-      histogram.push({
-        time: signalLine[i].time,
-        value: macdLine[i + (macdLine.length - signalLine.length)].value - signalLine[i].value
+  data.forEach(dataPoint => {
+    const fastValue = fastEMAMap.get(dataPoint.time);
+    const slowValue = slowEMAMap.get(dataPoint.time);
+    
+    if (fastValue !== undefined && slowValue !== undefined) {
+      macdLine.push({
+        time: dataPoint.time,
+        value: fastValue - slowValue
+      });
+    } else {
+      // Include warmup period with null values
+      macdLine.push({
+        time: dataPoint.time,
+        value: null
       });
     }
-  }
+  });
+  
+  // Calculate signal line (EMA of MACD) - only from valid MACD values
+  const validMacdForSignal = macdLine.filter(point => point.value !== null);
+  const signalEMA = calculateEMAFromData(validMacdForSignal, signalPeriod);
+  
+  // Create signal lookup map
+  const signalMap = new Map();
+  signalEMA.forEach(point => signalMap.set(point.time, point.value));
+  
+  // Create complete signal line with ALL data points (including warmup with null values)
+  const signalLine = [];
+  data.forEach(dataPoint => {
+    const signalValue = signalMap.get(dataPoint.time);
+    signalLine.push({
+      time: dataPoint.time,
+      value: signalValue !== undefined ? signalValue : null
+    });
+  });
+  
+  // Calculate histogram with complete timeline (including warmup with null values)
+  const histogram = [];
+  data.forEach(dataPoint => {
+    const macdPoint = macdLine.find(p => p.time === dataPoint.time);
+    const signalPoint = signalLine.find(p => p.time === dataPoint.time);
+    
+    if (macdPoint && signalPoint && macdPoint.value !== null && signalPoint.value !== null) {
+      histogram.push({
+        time: dataPoint.time,
+        value: macdPoint.value - signalPoint.value
+      });
+    } else {
+      // Include warmup period with null values
+      histogram.push({
+        time: dataPoint.time,
+        value: null
+      });
+    }
+  });
   
   return {
     macd: macdLine,

@@ -4,8 +4,8 @@ import { ActiveIndicator } from '../types/indicator.types';
 export interface IndicatorResult {
   id: string;
   name: string;
-  type: 'line' | 'area';
-  data: { time: number; value: number; color?: string }[];
+  type: 'line' | 'area' | 'histogram';
+  data: { time: number; value: number | null; color?: string }[];
   color: string;
   lineWidth: number;
   lineStyle: 'solid' | 'dashed' | 'dotted';
@@ -13,6 +13,30 @@ export interface IndicatorResult {
 
 export class DynamicIndicatorCalculator {
 
+  // Align indicator data with main data timeline to prevent visual shifts
+  private static alignIndicatorData(
+    indicatorData: { time: number; value: number }[],
+    mainData: OHLC[]
+  ): { time: number; value: number | null }[] {
+    const aligned: { time: number; value: number | null }[] = [];
+    
+    // Create a map of indicator data by time for fast lookup
+    const indicatorMap = new Map<number, number>();
+    indicatorData.forEach(point => {
+      indicatorMap.set(point.time, point.value);
+    });
+    
+    // Fill all time points from main data
+    mainData.forEach(mainPoint => {
+      const value = indicatorMap.get(mainPoint.time);
+      aligned.push({
+        time: mainPoint.time,
+        value: value !== undefined ? value : null
+      });
+    });
+    
+    return aligned;
+  }
   
   static async calculateIndicator(activeIndicator: ActiveIndicator, data: OHLC[]): Promise<IndicatorResult[]> {
     const results: IndicatorResult[] = [];
@@ -66,13 +90,15 @@ export class DynamicIndicatorCalculator {
       
       // Handle different return types generically
       if (Array.isArray(calculatedData)) {
-        // Single series - simple array of {time, value}
+        // Single series - simple array of {time, value} - align with main data
         console.log(`Single series indicator with ${calculatedData.length} points`);
+        const alignedData = this.alignIndicatorData(calculatedData, data);
+        
         results.push({
           id: activeIndicator.id,
           name: activeIndicator.name,
           type: 'line',
-          data: calculatedData,
+          data: alignedData,
           color: activeIndicator.values.color || activeIndicator.style.color || '#2196F3',
           lineWidth: activeIndicator.style.lineWidth || 2,
           lineStyle: activeIndicator.style.lineStyle || 'solid'
@@ -88,11 +114,17 @@ export class DynamicIndicatorCalculator {
             const seriesColor = activeIndicator.values[`${seriesName}Color`] || 
                               this.getDefaultColorForSeries(seriesName, Object.keys(calculatedData).indexOf(seriesName));
             
+            // Determine series type based on name
+            const seriesType = this.getSeriesTypeForName(seriesName);
+            
+            // Align multi-series data with main data timeline
+            const alignedData = this.alignIndicatorData(seriesData as any[], data);
+            
             results.push({
               id: `${activeIndicator.id}_${seriesName}`,
               name: `${activeIndicator.name} (${seriesName})`,
-              type: 'line',
-              data: seriesData,
+              type: seriesType,
+              data: alignedData,
               color: seriesColor,
               lineWidth: activeIndicator.style.lineWidth || 2,
               lineStyle: activeIndicator.style.lineStyle || 'solid'
@@ -114,6 +146,18 @@ export class DynamicIndicatorCalculator {
     return results;
   }
   
+  private static getSeriesTypeForName(seriesName: string): 'line' | 'area' | 'histogram' {
+    // Series that should be rendered as histograms
+    const histogramTypes = ['histogram', 'volume', 'bar'];
+    
+    if (histogramTypes.includes(seriesName.toLowerCase())) {
+      return 'histogram';
+    }
+    
+    // Default to line for everything else
+    return 'line';
+  }
+
   private static getDefaultColorForSeries(seriesName: string, index: number): string {
     // Default color palette for multi-series indicators
     const colors = ['#2196F3', '#FF9800', '#4CAF50', '#9C27B0', '#F44336', '#00BCD4'];

@@ -2,41 +2,48 @@
 function calculateRSI(data, parameters) {
   const period = parameters.period || 14;
   const result = [];
-  const changes = [];
   
-  // Calculate price changes
-  for (let i = 1; i < data.length; i++) {
-    changes.push(data[i].close - data[i - 1].close);
+  if (data.length === 0) {
+    return result;
   }
   
-  // Calculate RSI
-  for (let i = period - 1; i < changes.length; i++) {
-    let gains = 0;
-    let losses = 0;
-    
-    for (let j = i - period + 1; j <= i; j++) {
-      if (changes[j] > 0) {
-        gains += changes[j];
-      } else {
-        losses += Math.abs(changes[j]);
-      }
-    }
-    
-    const avgGain = gains / period;
-    const avgLoss = losses / period;
-    
-    if (avgLoss === 0) {
+  // Return complete timeline including warmup period with null values
+  for (let i = 0; i < data.length; i++) {
+    if (i < period) {
+      // Warmup period - return null values
       result.push({
-        time: data[i + 1].time,
-        value: 100
+        time: data[i].time,
+        value: null
       });
     } else {
-      const rs = avgGain / avgLoss;
-      const rsi = 100 - (100 / (1 + rs));
+      // Calculate RSI for valid positions
+      let gains = 0;
+      let losses = 0;
+      
+      // Calculate gains and losses for the period
+      for (let j = i - period + 1; j <= i; j++) {
+        const change = data[j].close - data[j - 1].close;
+        if (change > 0) {
+          gains += change;
+        } else {
+          losses += Math.abs(change);
+        }
+      }
+      
+      const avgGain = gains / period;
+      const avgLoss = losses / period;
+      
+      let rsiValue;
+      if (avgLoss === 0) {
+        rsiValue = 100;
+      } else {
+        const rs = avgGain / avgLoss;
+        rsiValue = 100 - (100 / (1 + rs));
+      }
       
       result.push({
-        time: data[i + 1].time,
-        value: rsi
+        time: data[i].time,
+        value: rsiValue
       });
     }
   }

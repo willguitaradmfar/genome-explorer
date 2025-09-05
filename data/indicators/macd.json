@@ -3,7 +3,7 @@
   "name": "MACD",
   "description": "Moving Average Convergence Divergence",
   "type": "oscillator",
-  "pane": "main",
+  "pane": "sub",
   "parameters": {
     "fastPeriod": {
       "type": "number",
