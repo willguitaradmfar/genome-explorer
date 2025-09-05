@@ -1,17 +1,24 @@
 {
   "appId": "com.genomeexplorer.app",
   "productName": "Genome Explorer",
-  "directories": {
-    "output": "dist"
-  },
+  "directories": { "output": "dist" },
+
+  "publish": "never",
+  "asar": true,
+  "compression": "maximum",
+
   "files": [
     "main.js",
     "dist/**/*",
     "data/**/*",
     "node_modules/**/*",
-    "!node_modules/**/test/**/*",
-    "!node_modules/**/*.map"
+    "!**/*.map",
+    "!**/test/**",
+    "!**/__tests__/**"
   ],
+
+  "artifactName": "Genome-Explorer-${version}-${env.SHORT_SHA}-${os}-${arch}.${ext}",
+
   "nsis": {
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
@@ -19,46 +26,31 @@
     "createStartMenuShortcut": true,
     "shortcutName": "Genome Explorer"
   },
+
   "win": {
-    "target": [
-      {
-        "target": "nsis",
-        "arch": ["x64"]
-      },
-      {
-        "target": "portable",
-        "arch": ["x64"]
-      }
-    ],
     "icon": "assets/icon.ico",
-    "publisherName": "William Lima Pereira"
+    "publisherName": "William Lima Pereira",
+    "target": [
+      { "target": "nsis", "arch": ["x64"] },
+      { "target": "portable", "arch": ["x64"] }
+    ]
   },
+
   "mac": {
-    "target": [
-      {
-        "target": "dmg",
-        "arch": ["x64", "arm64"]
-      },
-      {
-        "target": "zip",
-        "arch": ["x64", "arm64"]
-      }
-    ],
     "icon": "assets/icon.icns",
-    "category": "public.app-category.finance"
-  },
-  "linux": {
+    "category": "public.app-category.finance",
     "target": [
-      {
-        "target": "AppImage",
-        "arch": ["x64"]
-      },
-      {
-        "target": "deb",
-        "arch": ["x64"]
-      }
-    ],
+      { "target": "dmg", "arch": ["x64", "arm64"] },
+      { "target": "zip", "arch": ["x64", "arm64"] }
+    ]
+  },
+
+  "linux": {
     "icon": "assets/icon.png",
-    "category": "Office"
+    "category": "Office",
+    "target": [
+      { "target": "AppImage", "arch": ["x64"] },
+      { "target": "deb", "arch": ["x64"] }
+    ]
   }
 }

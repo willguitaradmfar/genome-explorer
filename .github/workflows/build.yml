@@ -5,8 +5,7 @@ permissions:
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -38,7 +37,8 @@ jobs:
           cache: npm
 
       - name: Compute SHORT_SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+        shell: bash
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: npm ci
@@ -46,10 +46,10 @@ jobs:
       - name: Build application
         run: npm run build
 
-      - name: Build Electron
-        run: npm run dist
+      - name: Build Electron (no publish)
+        run: npm run dist -- --publish=never
         env:
-          ELECTRON_BUILDER_DISABLE_PUBLISHING: true
+          SHORT_SHA: ${{ env.SHORT_SHA }}
 
       - name: Rename artifacts with commit hash
         shell: bash
@@ -79,8 +79,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
           path: ./artifacts
