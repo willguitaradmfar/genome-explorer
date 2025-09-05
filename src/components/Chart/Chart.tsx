@@ -41,6 +41,8 @@ const Chart: React.FC<ChartProps> = ({
 }) => {
   const [timeScaleRange, setTimeScaleRange] = useState<any>(null);
   const subChartsRef = useRef<Map<string, IChartApi>>(new Map());
+  const mainChartRef = useRef<IChartApi | null>(null);
+  const mainChartContainerRef = useRef<HTMLDivElement>(null);
 
   // Get sub-pane indicators (each will get its own chart)
   const subPaneIndicators = activeIndicators?.filter(ind => ind.pane === 'sub') || [];
@@ -50,7 +52,8 @@ const Chart: React.FC<ChartProps> = ({
     setTimeScaleRange(range);
   };
 
-  const handleMainChartReady = () => {
+  const handleMainChartReady = (chart: IChartApi) => {
+    mainChartRef.current = chart;
     if (onChartReady) {
       onChartReady({});
     }
@@ -58,11 +61,45 @@ const Chart: React.FC<ChartProps> = ({
 
   const handleSubChartReady = (indicatorId: string, chart: IChartApi) => {
     subChartsRef.current.set(indicatorId, chart);
+    
+    // Force main chart to resize when a subchart is added
+    setTimeout(() => {
+      if (mainChartRef.current && mainChartContainerRef.current) {
+        mainChartRef.current.applyOptions({
+          width: mainChartContainerRef.current.clientWidth,
+          height: mainChartContainerRef.current.clientHeight,
+        });
+      }
+    }, 100);
   };
 
   const handleSubChartRemoved = (indicatorId: string) => {
     subChartsRef.current.delete(indicatorId);
+    
+    // Force main chart to resize when a subchart is removed
+    setTimeout(() => {
+      if (mainChartRef.current && mainChartContainerRef.current) {
+        mainChartRef.current.applyOptions({
+          width: mainChartContainerRef.current.clientWidth,
+          height: mainChartContainerRef.current.clientHeight,
+        });
+      }
+    }, 100);
   };
+
+  // Force main chart resize when number of subcharts changes
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (mainChartRef.current && mainChartContainerRef.current) {
+        mainChartRef.current.applyOptions({
+          width: mainChartContainerRef.current.clientWidth,
+          height: mainChartContainerRef.current.clientHeight,
+        });
+      }
+    }, 200); // Longer delay to ensure DOM has updated
+
+    return () => clearTimeout(timer);
+  }, [subPaneIndicators.length]);
 
   const handleIndicatorDataUpdate = (newData: {
     [indicatorId: string]: { time: number; value: number; color: string; name: string }[]
@@ -75,7 +112,7 @@ const Chart: React.FC<ChartProps> = ({
   return (
     <div className="chart-container">
       {/* Main Chart */}
-      <div className="main-chart-wrapper">
+      <div className="main-chart-wrapper" ref={mainChartContainerRef}>
         <MainChart
           data={data}
           volumeData={volumeData}

@@ -207,6 +207,11 @@ const SubChart: React.FC<SubChartProps> = ({
             name: series.name,
             baseIndicator: activeIndicator
           });
+          
+          // Force chart to update layout after adding series
+          if (chartRef.current) {
+            chartRef.current.timeScale().fitContent();
+          }
         });
       } catch (error) {
         console.warn(`Error processing indicator ${activeIndicator.name}:`, error);
@@ -253,17 +258,28 @@ const SubChart: React.FC<SubChartProps> = ({
 
     chartInitialized.current = true;
     
-    // Notify parent about chart ready
+    // Process indicators immediately after chart initialization
+    if (subPaneIndicators.length > 0) {
+      // Use requestAnimationFrame to ensure chart is fully rendered
+      requestAnimationFrame(() => {
+        if (chartRef.current) {
+          processIndicators();
+          // Force chart to fit content and resize properly
+          chartRef.current.timeScale().fitContent();
+          if (chartContainerRef.current) {
+            chartRef.current.resize(
+              chartContainerRef.current.clientWidth,
+              chartContainerRef.current.clientHeight
+            );
+          }
+        }
+      });
+    }
+    
+    // Notify parent about chart ready after initialization
     if (onChartReady) {
       onChartReady(chart);
     }
-
-    // Trigger indicator processing after chart is ready
-    setTimeout(() => {
-      if (subPaneIndicators.length > 0 && chartRef.current) {
-        processIndicators();
-      }
-    }, 100);
 
     return () => {
       if (onChartRemoved) {
