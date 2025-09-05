@@ -229,6 +229,14 @@ const MainChart: React.FC<MainChartProps> = ({
     chartInitialized.current = true;
     setIsLoading(false);
 
+    // Process indicators after chart is fully initialized
+    setTimeout(() => {
+      if (activeIndicators && activeIndicators.length > 0) {
+        console.log('[MainChart] Triggering indicator processing after chart ready');
+        setRenderedIndicators(new Set()); // Reset to trigger indicator processing
+      }
+    }, 100);
+
     if (onChartReady) {
       onChartReady(chart);
     }
@@ -243,13 +251,26 @@ const MainChart: React.FC<MainChartProps> = ({
 
   // Handle main pane indicators
   useEffect(() => {
+    console.log('[MainChart] Processing indicators...', {
+      chartInitialized: chartInitialized.current,
+      activeIndicators: activeIndicators?.length,
+      chartRef: !!chartRef.current
+    });
+    
     if (!chartInitialized.current || !activeIndicators || !chartRef.current) {
+      console.log('[MainChart] Skipping indicator processing - not ready');
       return;
     }
 
     const mainPaneIndicators = activeIndicators.filter(indicator => indicator.pane === 'main');
     const currentIndicatorIds = new Set(mainPaneIndicators.map(ind => ind.id));
     const previousIndicatorIds = renderedIndicators;
+    
+    console.log('[MainChart] Indicator processing:', {
+      mainPaneIndicators: mainPaneIndicators.length,
+      currentIds: Array.from(currentIndicatorIds),
+      previousIds: Array.from(previousIndicatorIds)
+    });
 
     // Remove indicators
     const indicatorIdsToRemove = Array.from(previousIndicatorIds).filter(id => 
@@ -280,6 +301,7 @@ const MainChart: React.FC<MainChartProps> = ({
     );
 
     if (indicatorsToAdd.length > 0) {
+      console.log('[MainChart] Adding indicators:', indicatorsToAdd.map(ind => ind.name));
       const addIndicatorPromises = indicatorsToAdd.map(async (activeIndicator) => {
         try {
           const dataForCalculation = fullDataForIndicators?.data || data;
