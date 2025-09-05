@@ -53,6 +53,8 @@ const SubChart: React.FC<SubChartProps> = ({
     time: undefined
   });
 
+  const [isLoadingIndicators, setIsLoadingIndicators] = useState(false);
+
 
   const createChartOptions = () => ({
     width: 800,
@@ -111,6 +113,8 @@ const SubChart: React.FC<SubChartProps> = ({
     if (!chartRef.current || !subPaneIndicators.length) {
       return;
     }
+
+    setIsLoadingIndicators(true);
 
     // Clear existing series first to prevent duplicates
     indicatorSeriesMap.current.forEach((seriesData) => {
@@ -195,6 +199,8 @@ const SubChart: React.FC<SubChartProps> = ({
         console.warn(`Error processing indicator ${activeIndicator.name}:`, error);
       }
     }
+    
+    setIsLoadingIndicators(false);
   }, [subPaneIndicators, data, fullDataForIndicators]);
   
   // Sub chart initialization
@@ -348,8 +354,35 @@ const SubChart: React.FC<SubChartProps> = ({
 
   return (
     <>
-      <div style={{ width: '100%', height: '120px' }}>
+      <div style={{ width: '100%', height: '120px', position: 'relative' }}>
         <div ref={chartContainerRef} style={{ width: '100%', height: '100%' }} />
+        
+        {/* Loading indicator for sub chart */}
+        {isLoadingIndicators && (
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: 'rgba(0, 0, 0, 0.7)',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            zIndex: 10
+          }}>
+            <div style={{
+              border: '2px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '50%',
+              borderTop: '2px solid #2196F3',
+              width: '16px',
+              height: '16px',
+              animation: 'spin 1s linear infinite'
+            }} />
+            <span style={{ color: '#fff', fontSize: '12px' }}>Loading...</span>
+          </div>
+        )}
       </div>
       
       {/* SubChart Tooltip */}

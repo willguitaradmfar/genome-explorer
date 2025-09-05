@@ -272,6 +272,11 @@ const MainChart: React.FC<MainChartProps> = ({
       previousIds: Array.from(previousIndicatorIds)
     });
 
+    // Set loading state if we have indicators to process
+    if (mainPaneIndicators.length > 0 && !previousIndicatorIds.size) {
+      setIsLoading(true);
+    }
+
     // Remove indicators
     const indicatorIdsToRemove = Array.from(previousIndicatorIds).filter(id => 
       !currentIndicatorIds.has(id)
@@ -354,7 +359,10 @@ const MainChart: React.FC<MainChartProps> = ({
         }
       });
       
-      Promise.all(addIndicatorPromises);
+      // Wait for all indicators to finish and then hide loading
+      Promise.all(addIndicatorPromises).then(() => {
+        setIsLoading(false);
+      });
     }
 
     setRenderedIndicators(new Set(currentIndicatorIds));

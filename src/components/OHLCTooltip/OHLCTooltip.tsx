@@ -44,7 +44,7 @@ const OHLCTooltip: React.FC<OHLCTooltipProps> = ({
         transform: 'translateY(-50%)',
       }}
     >
-      <div className="bg-black/80 backdrop-blur-md border border-gray-600/30 rounded-lg shadow-2xl p-4 min-w-[250px]">
+      <div className="bg-black/10 backdrop-blur-md border border-gray-600/10 rounded-lg shadow-2xl p-4 min-w-[250px]">
         {/* Header */}
         <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-600/20">
           <div className="text-white font-bold text-sm">
