@@ -15,7 +15,7 @@
     "electron-only": "ELECTRON_IS_DEV=1 electron .",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
-    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:mac": "npm run build && electron-builder --mac --publish=never",
     "dist:linux": "npm run build && electron-builder --linux"
   },
   "keywords": [

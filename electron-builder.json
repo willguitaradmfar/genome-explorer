@@ -3,7 +3,7 @@
   "productName": "Genome Explorer",
   "directories": { "output": "dist" },
 
-  "publish": "never",
+  "publish": [],
   "asar": true,
   "compression": "maximum",
 
@@ -17,15 +17,9 @@
     "!**/__tests__/**"
   ],
 
-  "artifactName": "Genome-Explorer-${version}-${env.SHORT_SHA}-${os}-${arch}.${ext}",
+  "artifactName": "Genome-Explorer-${version}-${os}-${arch}.${ext}",
 
-  "nsis": {
-    "oneClick": false,
-    "allowToChangeInstallationDirectory": true,
-    "createDesktopShortcut": true,
-    "createStartMenuShortcut": true,
-    "shortcutName": "Genome Explorer"
-  },
+  "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true, "shortcutName": "Genome Explorer" },
 
   "win": {
     "icon": "assets/icon.ico",
@@ -33,7 +27,8 @@
     "target": [
       { "target": "nsis", "arch": ["x64"] },
       { "target": "portable", "arch": ["x64"] }
-    ]
+    ],
+    "publish": []
   },
 
   "mac": {
@@ -42,7 +37,8 @@
     "target": [
       { "target": "dmg", "arch": ["x64", "arm64"] },
       { "target": "zip", "arch": ["x64", "arm64"] }
-    ]
+    ],
+    "publish": []
   },
 
   "linux": {
@@ -51,6 +47,7 @@
     "target": [
       { "target": "AppImage", "arch": ["x64"] },
       { "target": "deb", "arch": ["x64"] }
-    ]
+    ],
+    "publish": []
   }
 }
